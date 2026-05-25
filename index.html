@@ -1,0 +1,209 @@
+﻿<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sati — Interactive Demo</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body class="s-normal">
+<main class="shell" aria-label="Sati posture and focus coach">
+  <!-- TOP -->
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M24 6c6 5 9 10 9 16a9 9 0 0 1-18 0c0-6 3-11 9-16Z" fill="currentColor" opacity=".9"/><path d="M24 42V22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></div>
+      <div><h1>Sati</h1><div class="sub">Posture &amp; Focus Coach</div></div>
+    </div>
+    <div class="wallet">
+      <div class="chip gp" id="gpChip" aria-live="polite"><span class="ico">↑</span><span id="gpVal">120</span> GP</div>
+      <div class="chip coins" id="coinChip" aria-live="polite"><span class="ico">¢</span><span id="coinVal">80</span></div>
+    </div>
+  </header>
+
+  <nav class="view-tabs" role="tablist" aria-label="Sati views">
+    <button class="tab active" id="tab-coach" role="tab" aria-selected="true" aria-controls="view-coach" data-view="coach" type="button">Coach</button>
+    <button class="tab" id="tab-insights" role="tab" aria-selected="false" aria-controls="view-insights" data-view="insights" type="button">Second-Brain</button>
+    <button class="tab" id="tab-hr" role="tab" aria-selected="false" aria-controls="view-hr" data-view="hr" type="button">HR Dashboard</button>
+  </nav>
+
+  <!-- MAIN -->
+  <section class="grid view-panel" id="view-coach" role="tabpanel" aria-labelledby="tab-coach">
+    <div class="card hero">
+      <div class="state-line">
+        <div class="state-txt" id="stateTxt">NORMAL — ต้นไม้ของคุณแข็งแรงดี</div>
+        <div class="pill"><span class="dot"></span><span id="cueTxt">wellness cue / ปกติ</span></div>
+      </div>
+
+      <div class="plantwrap">
+        <div class="halo"></div>
+        <svg class="plant" viewBox="0 0 320 340" role="img" aria-label="Sati plant growth avatar">
+          <path d="M104 270 h112 l-12 52 a8 8 0 0 1 -8 6 h-64 a8 8 0 0 1 -8 -6 z" fill="#c98b52"/>
+          <rect x="98" y="254" width="124" height="26" rx="10" fill="#dca068"/>
+          <rect class="stem stem-m" x="155" y="158" width="10" height="104" rx="5" fill="#5fa55a"/>
+          <path class="leaf leaf-l" d="M158 236 C120 226 96 196 100 162 C134 168 158 196 158 236 Z" fill="#6fb866"/>
+          <path class="leaf leaf-r" d="M162 236 C200 226 224 196 220 162 C186 168 162 196 162 236 Z" fill="#6fb866"/>
+          <path class="leaf leaf-sl" d="M158 232 C134 230 116 210 116 186 C140 192 156 208 158 232 Z" fill="#7cc06f" opacity=".92"/>
+          <path class="leaf leaf-sr" d="M162 232 C186 230 204 210 204 186 C180 192 164 208 162 232 Z" fill="#7cc06f" opacity=".92"/>
+          <path class="leaf leaf-t" d="M160 196 C150 170 158 150 160 138 C172 150 170 174 160 196 Z" fill="#8fcc7c"/>
+          <circle class="head" cx="160" cy="172" r="54" fill="#86c172"/>
+          <ellipse class="cheek" cx="128" cy="184" rx="10" ry="7" fill="#ef9d8f" opacity=".5"/>
+          <ellipse class="cheek" cx="192" cy="184" rx="10" ry="7" fill="#ef9d8f" opacity=".5"/>
+          <ellipse id="eyeL" cx="144" cy="168" rx="7" ry="10" fill="#34492f"/>
+          <ellipse id="eyeR" cx="176" cy="168" rx="7" ry="10" fill="#34492f"/>
+          <path id="browL" class="brow" d="M134 154 C141 151 148 151 154 155" stroke="#34492f" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0"/>
+          <path id="browR" class="brow" d="M166 155 C172 151 179 151 186 154" stroke="#34492f" stroke-width="3.2" fill="none" stroke-linecap="round" opacity="0"/>
+          <path id="mouth" class="mouth" d="M141 190 C151 206 172 206 181 190" stroke="#34492f" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path class="tear" d="M196 182 c-5 8 -5 14 0 14 c5 0 5 -6 0 -14 z" fill="#7fc4e8" opacity="0"/>
+          <g id="deco"></g>
+        </svg>
+
+        <aside class="action-card">
+          <div>
+            <div class="ac-title" id="acTitle">ยืดคอด้านข้าง</div>
+            <div class="ac-copy" id="acCopy">เอียงศีรษะไปด้านข้างค้างไว้ 15 วินาที สลับซ้าย-ขวา</div>
+            <button class="ac-btn" id="acDone" type="button">ทำเสร็จแล้ว · +10 GP</button>
+          </div>
+          <div class="ac-ill"><svg viewBox="0 0 60 76"><circle cx="30" cy="12" r="7"/><path d="M30 19V46"/><path d="M30 26L16 34"/><path d="M30 26L46 18"/><path d="M30 46L20 66"/><path d="M30 46L42 66"/></svg></div>
+        </aside>
+      </div>
+
+      <div class="growth" id="growthCard">
+        <div class="growth-top"><span class="stage-name" id="stageName">🌱 Sprout</span><span id="gpProgress">120 / 300 GP</span></div>
+        <div class="gbar"><i id="gbarFill"></i></div>
+        <div class="stage-track" id="stageTrack">
+          <span data-st="0">🌰</span><span data-st="1" class="on">🌱</span><span data-st="2">🪴</span><span data-st="3">🌿</span><span data-st="4">🌳</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="card signals">
+        <h2 class="sg-title">Live Signals</h2>
+        <p class="sg-sub">ค่าจริงจากเซนเซอร์ — IMU, ToF, กล้อง (ไม่ใช่ค่าที่กดเอง)</p>
+        <div class="sensor-status" id="sensorStatus" aria-live="polite"><span></span>Arduino WebSocket: connecting</div>
+        <div class="sig"><div class="lab">Back Angle<small>IMU · Nano 33 BLE</small></div><div><div class="val"><span id="angVal">15</span><span class="u">°</span></div><span class="stat" id="angStat">Good</span></div></div>
+        <div class="sig"><div class="lab">Screen Distance<small>Modulino ToF</small></div><div><div class="val"><span id="distVal">60</span><span class="u">cm</span></div><span class="stat" id="distStat">Good</span></div></div>
+        <div class="sig"><div class="lab">Posture Class<small>webcam cue</small></div><div><div class="val posture" id="postureVal">normal</div><span class="stat" id="sourceStat">Mock fallback</span></div></div>
+        <div class="sig"><div class="lab">Sitting Time<small>since last break</small></div><div><div class="val" id="sitVal">00:00</div><span class="stat" id="sitStat">Counting</span></div></div>
+      </div>
+
+      <div class="card missions">
+        <h3 class="m-title">ภารกิจวันนี้ <span class="seeall">Daily Missions</span></h3>
+        <div class="mission" id="m1" data-reward="30" aria-live="polite"><div class="m-check">✓</div><div class="m-body"><div class="m-name">พักครบ 3 ครั้ง</div></div><div class="m-reward"><span class="c">¢</span>30</div></div>
+        <div class="mission" id="m2" data-reward="20" aria-live="polite"><div class="m-check">✓</div><div class="m-body"><div class="m-name">นั่งท่าดีครบ 1 Pomodoro</div></div><div class="m-reward"><span class="c">¢</span>20</div></div>
+        <div class="mission" id="m3" data-reward="20" aria-live="polite"><div class="m-check">✓</div><div class="m-body"><div class="m-name">รักษาระยะหน้าจอดีทั้งชั่วโมง</div></div><div class="m-reward"><span class="c">¢</span>20</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view-panel insights-view" id="view-insights" role="tabpanel" aria-labelledby="tab-insights" hidden>
+    <div class="view-head">
+      <div>
+        <h2>Second-Brain Insights</h2>
+        <p>สรุป pattern จาก log วันนี้แบบ observation</p>
+      </div>
+      <span class="view-chip" id="logCount">0 logs</span>
+    </div>
+    <div class="insight-grid">
+      <article class="card insight-card primary">
+        <span>ฉันสังเกตว่า...</span>
+        <strong id="insightPattern">ช่วงบ่ายคุณมักนั่งงอหลังมากสุด</strong>
+        <p id="insightPatternCopy">เมื่อมี log มากขึ้น Sati จะสรุปช่วงเวลาที่ควรดูแลท่านั่งเป็นพิเศษ</p>
+      </article>
+      <article class="card insight-card">
+        <span>ฉันสังเกตว่า...</span>
+        <strong id="insightBreaks">วันนี้พัก 0 ครั้ง</strong>
+        <p>นับจากการกดทำท่ายืดเหยียดหลังได้รับ cue จากระบบ</p>
+      </article>
+      <article class="card insight-card">
+        <span>ฉันสังเกตว่า...</span>
+        <strong id="insightFocus">ช่วงท่าดีต่อเนื่องกำลังเริ่มสะสม</strong>
+        <p id="insightFocusCopy">ทุกช่วงที่เซนเซอร์เห็นท่าดีจะช่วยให้ต้นไม้เติบโต</p>
+      </article>
+      <article class="card insight-card">
+        <span>ฉันสังเกตว่า...</span>
+        <strong id="insightDistance">ระยะหน้าจอวันนี้ค่อนข้างสม่ำเสมอ</strong>
+        <p id="insightDistanceCopy">ค่า ToF จะช่วยจับ pattern การขยับเข้าใกล้หน้าจอ</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="view-panel hr-view" id="view-hr" role="tabpanel" aria-labelledby="tab-hr" hidden>
+    <div class="view-head">
+      <div>
+        <h2>HR Dashboard</h2>
+        <p>ภาพรวมทีมแบบ anonymized aggregate เท่านั้น</p>
+      </div>
+      <span class="view-chip">No individual data</span>
+    </div>
+    <div class="hr-grid">
+      <article class="card hr-card hero-metric">
+        <span>Team posture time</span>
+        <strong id="hrGoodPct">78%</strong>
+        <p>% เวลานั่งท่าดีเฉลี่ยทั้งทีม</p>
+        <div class="metric-bar"><i id="hrGoodBar"></i></div>
+      </article>
+      <article class="card hr-card">
+        <span>Energy pattern</span>
+        <strong id="hrTiredWindow">15:00–16:00</strong>
+        <p>ช่วงเวลาที่ทีมเหนื่อยสุดจาก aggregate log</p>
+      </article>
+      <article class="card hr-card">
+        <span>Break rhythm</span>
+        <strong id="hrBreaks">24 ครั้ง</strong>
+        <p>จำนวนพักรวมแบบไม่ระบุตัวตนในวันนี้</p>
+      </article>
+      <article class="card hr-card">
+        <span>Coverage</span>
+        <strong id="hrDevices">18 devices</strong>
+        <p>อุปกรณ์ที่ส่งข้อมูล aggregate ล่าสุด</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- CONTROLS -->
+  <footer>
+    <div class="controls" aria-label="Fallback mock controls">
+      <span class="clabel">Fallback mock:</span>
+      <button class="btn active" data-mode="normal" type="button" aria-label="Use normal fallback mock data">นั่งปกติ<small>Normal</small></button>
+      <button class="btn" data-mode="slouch" type="button" aria-label="Use slouch fallback mock data">นั่งงอหลัง<small>Slouch</small></button>
+      <button class="btn" data-mode="long" type="button" aria-label="Use long sitting fallback mock data">นั่งนาน<small>Long sitting</small></button>
+      <button class="btn ghost" id="resetBtn" type="button" aria-label="Reset demo progress">↻ Reset</button>
+      <button class="btn shop" id="shopBtn" type="button" aria-label="Open decoration shop">🛍 ร้านค้า · Shop</button>
+    </div>
+    <div class="foot">Sati is a wellness companion · เหรียญและการเติบโตมาจากพฤติกรรมจริงที่เซนเซอร์ยืนยัน</div>
+  </footer>
+</main>
+
+<!-- ONBOARDING GUIDE -->
+<div class="guide show" id="guide" role="dialog" aria-modal="true" aria-labelledby="gH" aria-describedby="gP">
+  <div class="guide-dim"></div>
+  <button class="guide-skip" id="guideSkip" type="button">ข้าม / Skip →</button>
+  <div class="guide-card">
+    <div class="guide-emoji" id="gEmoji">🌱</div>
+    <div class="guide-step" id="gStep">ขั้นที่ 1 / 5</div>
+    <h2 class="guide-h" id="gH">ยินดีต้อนรับสู่ Sati</h2>
+    <p class="guide-p" id="gP">Sati คือโค้ชท่านั่งที่ช่วยให้คุณนั่งทำงานอย่างมีสุขภาวะ ลองมาดูกันว่ามันทำงานยังไงใน 30 วินาที</p>
+    <div class="guide-dots" id="gDots"></div>
+    <div class="guide-nav">
+      <button id="gBack" type="button">ย้อนกลับ</button>
+      <button class="next" id="gNext" type="button">ถัดไป →</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div class="shopwrap" id="shop" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+  <div class="shop-dim" id="shopDim"></div>
+  <div class="shop-card">
+    <div class="shop-head"><h2 id="shopTitle">🛍 ร้านค้าตกแต่ง</h2><button class="shop-close" id="shopClose" type="button" aria-label="Close shop">✕</button></div>
+    <p class="shop-sub">ใช้เหรียญที่ได้จากภารกิจมาแต่งต้นไม้ของคุณ · มี <b id="shopCoins">80</b> เหรียญ</p>
+    <div class="shop-grid" id="shopGrid"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
