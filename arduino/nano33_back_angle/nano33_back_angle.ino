@@ -1,6 +1,9 @@
 #include <Arduino_BMI270_BMM150.h>
 #include <ArduinoBLE.h>
 
+// Verified with Arduino_BMI270_BMM150 1.2.3 and ArduinoBLE 2.0.2 on 2026-05-26.
+// The Y-axis assumption still depends on how the Nano is clipped to the shirt.
+
 const char DEVICE_NAME[] = "Sati-Nano";
 const char SERVICE_UUID[] = "19B10000-E8F2-537E-4F6C-D104768A1214";
 const char CHAR_UUID[] = "19B10001-E8F2-537E-4F6C-D104768A1214";

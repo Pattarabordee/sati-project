@@ -6,6 +6,10 @@
 #error "Install the Arduino Modulino library from Arduino Library Manager."
 #endif
 
+// Verified with Arduino_Modulino 0.8.0 on 2026-05-26.
+// Distance_Basic uses Modulino.begin(), distance.begin(), available(), get().
+// distance.get() returns millimeters, so this sketch converts to centimeters.
+
 const unsigned long READ_INTERVAL_MS = 100;
 const int WINDOW_SIZE = 5;
 const float MIN_DISTANCE_CM = 4.0;
@@ -70,7 +74,8 @@ void loop() {
     return;
   }
 
-  float rawCm = distance.get();
+  float rawMm = distance.get();
+  float rawCm = rawMm / 10.0;
 
   // กันค่า spike หรือค่านอกช่วง demo ของ Modulino Distance
   if (rawCm < MIN_DISTANCE_CM || rawCm > MAX_DISTANCE_CM) {

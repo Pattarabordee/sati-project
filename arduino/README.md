@@ -9,17 +9,21 @@ This folder contains the two hardware sketches used by Sati:
 
 Install these from Arduino IDE Library Manager:
 
-| Sketch | Library | Notes |
-|---|---|---|
-| Nano 33 BLE Sense Rev2 | `Arduino_BMI270_BMM150` | IMU library for BMI270 + BMM150 |
-| Nano 33 BLE Sense Rev2 | `ArduinoBLE` | BLE peripheral service + characteristic |
-| UNO Q MCU | `Arduino_Modulino` / `Modulino` | Official Arduino Modulino library; verify exact library name in Library Manager |
+| Sketch | Library | Verified version | Notes |
+|---|---|---|---|
+| Nano 33 BLE Sense Rev2 | `Arduino_BMI270_BMM150` | `1.2.x` (checked with `1.2.3`) | IMU library for BMI270 + BMM150 |
+| Nano 33 BLE Sense Rev2 | `ArduinoBLE` | `2.0.x` (checked with `2.0.2`) | BLE peripheral service + characteristic |
+| UNO Q MCU | `Arduino_Modulino` | `0.8.x` (checked with `0.8.0`) | Official Arduino Modulino library, includes `Arduino_Modulino.h` |
 
 References:
 
 - Nano 33 BLE Sense Rev2 IMU guide: https://docs.arduino.cc/tutorials/nano-33-ble-sense-rev2/imu-gyroscope
 - Arduino Modulino library: https://docs.arduino.cc/libraries/arduino_modulino
 - Modulino Distance guide: https://docs.arduino.cc/tutorials/modulino-distance/how-distance/
+- Modulino Distance_Basic example: https://github.com/arduino-libraries/Arduino_Modulino/tree/main/examples/Modulino_Distance/Distance_Basic
+- BMI270 accelerometer example: https://github.com/arduino-libraries/Arduino_BMI270_BMM150/tree/master/examples/SimpleAccelerometer
+- BMI270 gyroscope example: https://github.com/arduino-libraries/Arduino_BMI270_BMM150/tree/master/examples/SimpleGyroscope
+- ArduinoBLE BatteryMonitor example: https://github.com/arduino-libraries/ArduinoBLE/tree/master/examples/Peripheral/BatteryMonitor
 
 ## Flash Nano 33 BLE Sense Rev2
 
@@ -61,7 +65,7 @@ $env:SATI_BLE_CHAR="19B10001-E8F2-537E-4F6C-D104768A1214"
 {"tof":62.5}
 ```
 
-The Python bridge expects the same format from Serial.
+The Python bridge expects the same format from Serial. The Modulino library returns distance in millimeters; this sketch converts it to centimeters before printing `tof`.
 
 ## Wearing The Nano
 
