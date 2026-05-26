@@ -368,8 +368,10 @@ function applySensorData(data){
   if(Number.isFinite(screenDistance)) app.dist=screenDistance;
   const posture=normalizePostureClass(data.postureClass);
   app.postureClass=posture==="movement"?"movement":posture;
-  if((app.postureClass==="slouch"||app.postureClass==="hunched")&&app.ang<=T.warnDeg) app.ang=T.warnDeg+8;
-  if(app.postureClass.includes("close")&&app.dist>=T.closeCm) app.dist=T.closeCm-6;
+  const backPostureCue=app.postureClass==="slouch"||app.postureClass==="hunched";
+  const closePostureCue=app.postureClass==="close"||app.postureClass==="too-close";
+  if(backPostureCue&&app.ang<=T.warnDeg) app.ang=T.warnDeg+8;
+  if(closePostureCue&&app.dist>=T.closeCm) app.dist=T.closeCm-6;
   sensor.lastMessage=performance.now();
 }
 function scheduleReconnect(){
@@ -426,6 +428,19 @@ function mock(dt,now){
   else if(app.mode==="slouch"){app.ang=(sec>8.4?45:32)+w*1.2;app.dist=60+Math.sin(now/1200)*1.5;app.postureClass="slouch";app.sit+=dt/1000;}
   else if(app.mode==="long"){app.ang=15+w;app.dist=61+Math.sin(now/1000)*1.5;app.postureClass="long-sitting";app.sit+=(dt/1000)*7;}
 }
+function finishMovementBreak(){
+  if(!app.movementRewarded){
+    app.gp+=15;
+    app.breaks+=1;
+    app.movementRewarded=true;
+    saveProgress();
+    toast("ลุกพักสำเร็จ · +15 GP 🌿");
+  }
+  app.state="normal";
+  app.stateLocked=false;
+  app.backMs=0;app.distMs=0;app.sit=0;
+  app.recMs=T.recMs;app.goodRun=0;app.goodAcc=0;
+}
 /* ===== state machine ===== */
 function machine(dt){
   const movementCue=app.postureClass==="movement";
@@ -436,17 +451,7 @@ function machine(dt){
     app.movementRewarded=false;
   }
   if(app.movementMs>=T.moveBreakMs){
-    if(!app.movementRewarded){
-      app.gp+=15;
-      app.breaks+=1;
-      app.movementRewarded=true;
-      saveProgress();
-      toast("ลุกพักสำเร็จ · +15 GP 🌿");
-    }
-    app.state="normal";
-    app.stateLocked=false;
-    app.backMs=0;app.distMs=0;app.recMs=T.recMs;app.sit=0;
-    app.goodRun=0;app.goodAcc=0;
+    finishMovementBreak();
     return;
   }
   const backCue=app.ang>T.warnDeg, distCue=app.dist<T.closeCm, longSit=app.sit>=T.longSit;
