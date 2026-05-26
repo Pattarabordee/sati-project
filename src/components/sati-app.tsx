@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Leaf, RotateCcw, ShoppingBag, Wifi, WifiOff, X } from "lucide-react";
+import { Check, Leaf, Monitor, Moon, RotateCcw, ShoppingBag, Sun, Wifi, WifiOff, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
 import { PlantAvatar } from "@/components/plant-avatar";
@@ -32,6 +32,7 @@ type SatiState = "normal" | "warning" | "action";
 type MockMode = "normal" | "slouch" | "long" | "movement";
 type SensorSource = "mock" | "ws";
 type MissionId = "m1" | "m2" | "m3";
+type ThemePref = "light" | "dark" | "system";
 
 type MissionsDone = Record<MissionId, boolean>;
 
@@ -45,6 +46,7 @@ type ProgressMemory = {
   missionsDone?: Partial<MissionsDone>;
   owned?: string[];
   decorations?: string[];
+  theme?: ThemePref;
 };
 
 type AppState = {
@@ -397,6 +399,8 @@ export function SatiApp() {
   const [gpPulse, setGpPulse] = useState(false);
   const [coinPulse, setCoinPulse] = useState(false);
   const [levelPulse, setLevelPulse] = useState(false);
+  const [themePref, setThemePref] = useState<ThemePref>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number | null>(null);
@@ -461,8 +465,31 @@ export function SatiApp() {
     setApp(restored);
     setGuideSeen(memory?.guideSeen === true);
     setGuideOpen(memory?.guideSeen === true ? false : true);
+    setThemePref(memory?.theme ?? "system");
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const applyResolved = () => {
+      let next: "light" | "dark" = "light";
+      if (themePref === "dark") next = "dark";
+      else if (themePref === "light") next = "light";
+      else next = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+      setResolvedTheme(next);
+      document.documentElement.setAttribute("data-theme", next);
+    };
+
+    applyResolved();
+
+    if (themePref === "system") {
+      const mql = window.matchMedia("(prefers-color-scheme: dark)");
+      mql.addEventListener("change", applyResolved);
+      return () => mql.removeEventListener("change", applyResolved);
+    }
+  }, [themePref]);
 
   useEffect(() => {
     appRef.current = app;
@@ -480,6 +507,7 @@ export function SatiApp() {
       missionsDone: app.missionsDone,
       owned: app.owned,
       decorations: app.decorations,
+      theme: themePref,
     };
     writeMemory(data);
   }, [
@@ -493,6 +521,7 @@ export function SatiApp() {
     app.missionsDone,
     app.owned,
     app.decorations,
+    themePref,
   ]);
 
   useEffect(() => {
@@ -731,6 +760,10 @@ export function SatiApp() {
     setGuideOpen(true);
   };
 
+  const cycleTheme = () => {
+    setThemePref((prev) => (prev === "dark" ? "light" : prev === "light" ? "system" : "dark"));
+  };
+
   const buyItem = (itemId: string) => {
     const item = shopItems.find((candidate) => candidate.id === itemId);
     if (!item) return;
@@ -762,6 +795,16 @@ export function SatiApp() {
             </div>
           </div>
           <div className="wallet" aria-live="polite" data-testid="wallet-chip">
+            <button
+              className="theme-toggle"
+              onClick={cycleTheme}
+              aria-label={`Theme: ${themePref}. Click to cycle.`}
+              data-testid="theme-toggle"
+              title={`Theme: ${themePref} (resolved: ${resolvedTheme})`}
+              type="button"
+            >
+              {themePref === "system" ? <Monitor /> : resolvedTheme === "dark" ? <Moon /> : <Sun />}
+            </button>
             {hackathonDemoMode ? (
               <Badge className="demo-mode-badge" variant="secondary">
                 🎬 Demo Mode · GP เร่งให้ดูเร็วขึ้น
@@ -984,7 +1027,7 @@ export function SatiApp() {
       </div>
 
       <Dialog open={guideOpen} onOpenChange={(open) => (open ? setGuideOpen(true) : completeGuide())}>
-        <DialogContent className="guide-card" aria-describedby="guide-copy">
+        <DialogContent className="guide-card">
           <button className="guide-skip" type="button" onClick={completeGuide}>
             ข้าม / Skip
           </button>
@@ -992,7 +1035,7 @@ export function SatiApp() {
           <div className="guide-step">ขั้นที่ {guideIndex + 1} / {guideSteps.length}</div>
           <DialogHeader>
             <DialogTitle className="guide-h">{selectedGuide.title}</DialogTitle>
-            <DialogDescription id="guide-copy" className="guide-p">
+            <DialogDescription className="guide-p">
               {selectedGuide.copy}
             </DialogDescription>
           </DialogHeader>
@@ -1049,7 +1092,7 @@ export function SatiApp() {
         </DialogContent>
       </Dialog>
 
-      <Toaster richColors position="top-center" />
+      <Toaster richColors position="top-center" theme={resolvedTheme} />
     </main>
   );
 }

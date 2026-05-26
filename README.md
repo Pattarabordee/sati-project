@@ -34,7 +34,7 @@ Sati is a sensor-driven posture and focus coach for desk work. The web app reads
 |---|---|
 | `src/components/sati-app.tsx` | Main app logic: sensor state, growth, missions, shop, insights |
 | `src/components/ui/` | Lightweight UI primitives used by the Next.js app |
-| `src/app/` | Next.js App Router entry, metadata, global styles |
+| `src/app/` | Next.js App Router entry, metadata, global styles, light/dark theme tokens |
 | `sati_ws_bridge.py` | Python WebSocket bridge for UNO Q Linux side |
 | `requirements.txt` | Python dependencies for the bridge |
 | `arduino/` | Nano BLE and UNO Q MCU sketches |
@@ -201,6 +201,7 @@ Official docs:
 ## Constraints & Design Notes
 
 - **No localStorage/sessionStorage:** uses `window.name` for sandbox iframe compatibility.
+- **Theme:** light/dark/system toggle, persisted via `window.name`, no localStorage.
 - **Wellness only:** Sati reports sensor observations for personal awareness.
 - **Sensor-driven:** GP, breaks, and missions are tied to sensor-confirmed behavior. Fallback controls exist for demo resilience if hardware is unavailable.
 - **HR view is aggregate only:** no individual employee detail is shown.

@@ -22,6 +22,7 @@
 - กดปุ่ม "นั่งปกติ" หรือให้นั่งตรงจริง
 - ชี้ Live Signals: back angle ประมาณ 15 องศา, distance ประมาณ 60 cm, state = NORMAL
 - ชี้ต้นไม้สีเขียวสด และ progress bar ของ GP
+- ลอง toggle theme เป็น dark เพื่อให้กรรมการเห็น attention to detail ตอนใช้งานช่วงเย็น
 - พูดว่า "นี่คือ baseline ตอนผู้ใช้อยู่ในโซนสบาย"
 
 ### Scene 2: Hunched detection (30 วินาที)
