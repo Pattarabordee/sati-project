@@ -37,6 +37,8 @@ Sati is a sensor-driven posture and focus coach for desk work. The web app reads
 | `src/app/` | Next.js App Router entry, metadata, global styles |
 | `sati_ws_bridge.py` | Python WebSocket bridge for UNO Q Linux side |
 | `requirements.txt` | Python dependencies for the bridge |
+| `arduino/` | Nano BLE and UNO Q MCU sketches |
+| `docs/` | Demo script, business canvas, pitch outline, judging rubric map |
 | `legacy/` | Original vanilla HTML/JS prototype kept for reference |
 | `public/` | Static assets such as favicon |
 
@@ -112,6 +114,8 @@ python -m http.server 8080 --directory out --bind 0.0.0.0
 ```
 
 ## Deploy to Arduino UNO Q via Arduino App Lab
+
+See also: [`arduino/README.md`](arduino/README.md) for sketch flashing, BLE UUIDs, wiring notes, and hardware verification.
 
 ### Why Arduino App Lab?
 
@@ -196,6 +200,13 @@ Official docs:
 - **Wellness only:** Sati reports sensor observations for personal awareness.
 - **Sensor-driven:** GP, breaks, and missions are tied to sensor-confirmed behavior. Fallback controls exist for demo resilience if hardware is unavailable.
 - **HR view is aggregate only:** no individual employee detail is shown.
+
+## Demo & Business
+
+- [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) — 5-7 minute judge-facing live demo script
+- [`docs/BUSINESS_CANVAS.md`](docs/BUSINESS_CANVAS.md) — Business Model Canvas
+- [`docs/PITCH_OUTLINE.md`](docs/PITCH_OUTLINE.md) — 3-minute pitch outline for slides
+- [`docs/JUDGING_RUBRIC_MAP.md`](docs/JUDGING_RUBRIC_MAP.md) — Mapping from Sati features to judging criteria
 
 ## License
 
