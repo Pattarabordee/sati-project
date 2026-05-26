@@ -803,7 +803,13 @@ export function SatiApp() {
               title={`Theme: ${themePref} (resolved: ${resolvedTheme})`}
               type="button"
             >
-              {themePref === "system" ? <Monitor /> : resolvedTheme === "dark" ? <Moon /> : <Sun />}
+              {themePref === "system" ? (
+                <Monitor aria-hidden="true" />
+              ) : resolvedTheme === "dark" ? (
+                <Moon aria-hidden="true" />
+              ) : (
+                <Sun aria-hidden="true" />
+              )}
             </button>
             {hackathonDemoMode ? (
               <Badge className="demo-mode-badge" variant="secondary">
@@ -815,7 +821,7 @@ export function SatiApp() {
               variant="default"
               data-testid="wallet-gp"
             >
-              <Leaf data-icon="inline-start" />
+              <Leaf data-icon="inline-start" aria-hidden="true" />
               <span>{app.gp}</span> GP
             </Badge>
             <Badge
@@ -839,12 +845,12 @@ export function SatiApp() {
           <TabsContent value="coach" className="grid view-panel">
             <Card className="hero">
               <CardHeader className="hero-head">
-                <div className="state-line" data-testid="state-line">
+                <div className="state-line" data-testid="state-line" aria-live="polite">
                   <CardTitle className="state-txt" data-testid="state-title">
                     {stateCopy[app.state].title}
                   </CardTitle>
                   <Badge className="state-pill" variant="secondary">
-                    <span className="dot" />
+                    <span className="dot" aria-hidden="true" />
                     {stateCopy[app.state].cue}
                   </Badge>
                 </div>
@@ -859,7 +865,7 @@ export function SatiApp() {
                       <div className="ac-title">{activeStretch.title}</div>
                       <div className="ac-copy">{activeStretch.copy}</div>
                       <Button className="ac-btn" onClick={handleStretchDone}>
-                        <Check data-icon="inline-start" />
+                        <Check data-icon="inline-start" aria-hidden="true" />
                         ทำเสร็จแล้ว · +10 GP
                       </Button>
                     </div>
@@ -907,9 +913,13 @@ export function SatiApp() {
                     ค่าจริงจากเซนเซอร์ — IMU, ToF, กล้อง
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="compact-card-content">
+                <CardContent className="compact-card-content" aria-live="polite" aria-atomic="false">
                   <div className={live ? "sensor-status live" : "sensor-status"} aria-live="polite">
-                    {live ? <Wifi data-icon="inline-start" /> : <WifiOff data-icon="inline-start" />}
+                    {live ? (
+                      <Wifi data-icon="inline-start" aria-hidden="true" />
+                    ) : (
+                      <WifiOff data-icon="inline-start" aria-hidden="true" />
+                    )}
                     {live ? "Arduino WebSocket: live" : "Arduino WebSocket: mock fallback"}
                   </div>
                   <SignalRow testId="signal-back-angle" label="Back Angle" detail="IMU · Nano 33 BLE" value={Math.round(app.ang)} unit="°" stat={angStat(app.ang)} />
@@ -928,7 +938,7 @@ export function SatiApp() {
                   {(Object.keys(missionCopy) as MissionId[]).map((id) => (
                     <div key={id} className={app.missionsDone[id] ? "mission done" : "mission"}>
                       <div className="m-check">
-                        <Check />
+                        <Check aria-hidden="true" />
                       </div>
                       <div className="m-body">
                         <div className="m-name">{missionCopy[id].name}</div>
@@ -1006,7 +1016,7 @@ export function SatiApp() {
               <small>Movement</small>
             </Button>
             <Button className="fallback-btn ghost" variant="ghost" onClick={resetDemo} aria-label="Reset demo progress">
-              <RotateCcw data-icon="inline-start" />
+              <RotateCcw data-icon="inline-start" aria-hidden="true" />
               Reset
             </Button>
             <Button className="fallback-btn ghost" variant="ghost" onClick={setNearLevelDemo}>
@@ -1016,7 +1026,7 @@ export function SatiApp() {
               ดู Tour อีกครั้ง
             </Button>
             <Button className="fallback-btn shop" variant="warm" onClick={() => setShopOpen(true)} aria-label="Open decoration shop">
-              <ShoppingBag data-icon="inline-start" />
+              <ShoppingBag data-icon="inline-start" aria-hidden="true" />
               ร้านค้า · Shop
             </Button>
           </div>
@@ -1066,7 +1076,7 @@ export function SatiApp() {
             </div>
             <DialogClose asChild>
               <Button variant="outline" size="icon" aria-label="Close shop">
-                <X />
+                <X aria-hidden="true" />
               </Button>
             </DialogClose>
           </DialogHeader>
@@ -1115,7 +1125,7 @@ function SignalRow({
   testId?: string;
 }) {
   return (
-    <div className="sig" data-testid={testId}>
+    <div className="sig" data-testid={testId} aria-label={`${label}: ${value}${unit ?? ""}, ${stat}`}>
       <div className="lab">
         {label}
         <small>{detail}</small>

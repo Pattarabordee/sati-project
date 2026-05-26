@@ -78,6 +78,16 @@ Or set the frontend env var:
 $env:NEXT_PUBLIC_SATI_WS_AUTOCONNECT="true"; npm run dev
 ```
 
+### Demo on Tablet/Mobile
+
+The live site is responsive:
+
+- Mobile (375px+): single-column layout
+- Tablet (768px+): stacked coach view with readable cards
+- Desktop (1024px+): multi-column dashboard layout
+
+For best demo experience, use **landscape tablet** or **laptop** at 1280x720+.
+
 ### Backend (Python WebSocket Bridge)
 
 ```powershell
