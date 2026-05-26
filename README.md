@@ -106,12 +106,16 @@ If hardware is not connected yet, the bridge keeps running with fallback data an
 ### Build for Static Deployment
 
 This repo uses `output: "export"` in `next.config.ts`, so `npm run build` creates the static `out/` folder.
+Local development and local static preview run at the root path, such as `http://localhost:3000` or `http://localhost:8080`.
 
 ```powershell
 npm run build
 python -m http.server 8080 --directory out --bind 0.0.0.0
 # Open http://localhost:8080
 ```
+
+GitHub Actions sets `GITHUB_ACTIONS=true`, so production Pages builds automatically use `basePath` and `assetPrefix` for `/sati-project`.
+Live demo URL: https://pattarabordee.github.io/sati-project/
 
 ## Deploy to Arduino UNO Q via Arduino App Lab
 
