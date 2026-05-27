@@ -20,6 +20,7 @@ float lastGy = 0.0;
 float lastGz = 0.0;
 bool hasLastGyro = false;
 bool wasConnected = false;
+bool imuReady = false;
 unsigned long lastUpdate = 0;
 
 float angleFromAccel(float ax, float ay, float az) {
@@ -29,6 +30,10 @@ float angleFromAccel(float ax, float ay, float az) {
 }
 
 float readBackAngle() {
+  if (!imuReady) {
+    return 0.0;
+  }
+
   float ax = 0.0;
   float ay = 0.0;
   float az = 0.0;
@@ -42,6 +47,10 @@ float readBackAngle() {
 }
 
 float readMotionAmount() {
+  if (!imuReady) {
+    return 0.0;
+  }
+
   float gx = 0.0;
   float gy = 0.0;
   float gz = 0.0;
@@ -66,6 +75,11 @@ float readMotionAmount() {
 }
 
 void calibrateZeroAngle() {
+  if (!imuReady) {
+    zeroAngle = 0.0;
+    return;
+  }
+
   Serial.println("Calibrating zero angle for 5 seconds. Sit upright and stay still.");
 
   unsigned long start = millis();
@@ -111,15 +125,6 @@ void setup() {
 
   Serial.println("Sati Nano back-angle sensor booting...");
 
-  if (!IMU.begin()) {
-    Serial.println("IMU begin failed. Check board selection: Nano 33 BLE Sense Rev2.");
-    while (true) {
-      delay(1000);
-    }
-  }
-
-  calibrateZeroAngle();
-
   if (!BLE.begin()) {
     Serial.println("BLE begin failed.");
     while (true) {
@@ -137,6 +142,13 @@ void setup() {
   BLE.advertise();
 
   Serial.println("BLE advertising as Sati-Nano");
+
+  imuReady = IMU.begin();
+  if (imuReady) {
+    calibrateZeroAngle();
+  } else {
+    Serial.println("IMU begin failed. BLE stays online with zero sensor values.");
+  }
 }
 
 void loop() {
