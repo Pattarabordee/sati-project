@@ -12,6 +12,7 @@ import logging
 import math
 import os
 import random
+import re
 import signal
 import time
 from dataclasses import dataclass
@@ -37,6 +38,7 @@ SEND_INTERVAL_SEC = 0.25
 
 BLE_NAME = os.getenv("SATI_BLE_NAME", "Sati-Nano")
 BLE_ADDRESS = os.getenv("SATI_BLE_ADDRESS", "")
+BLE_SERVICE_UUID = os.getenv("SATI_BLE_SERVICE", "19B10000-E8F2-537E-4F6C-D104768A1214")
 DEFAULT_BLE_CHAR_UUID = "19B10001-E8F2-537E-4F6C-D104768A1214"
 BLE_CHAR_UUID = os.getenv("SATI_BLE_CHAR", DEFAULT_BLE_CHAR_UUID)
 BLE_SCAN_TIMEOUT_SEC = float(os.getenv("SATI_BLE_SCAN_TIMEOUT", "4"))
@@ -101,12 +103,20 @@ class BleImuReader:
             self._log_mock_once()
 
     async def _find_device_address(self) -> str:
-        # หาอุปกรณ์จากชื่อที่ตั้งไว้ใน Nano; ถ้าไม่เจอจะกลับไปใช้ mock
-        devices = await BleakScanner.discover(timeout=BLE_SCAN_TIMEOUT_SEC)
-        for device in devices:
-            if device.name == BLE_NAME:
-                return device.address
-        return ""
+        # หาอุปกรณ์จากชื่อหรือ service UUID; service UUID ช่วยเมื่อทีมตั้งชื่อ Nano คนละชื่อ
+        results = await BleakScanner.discover(timeout=BLE_SCAN_TIMEOUT_SEC, return_adv=True)
+        service_match = ""
+        target_service = BLE_SERVICE_UUID.lower()
+
+        for address, (device, adv) in results.items():
+            name = device.name or adv.local_name or ""
+            service_uuids = [uuid.lower() for uuid in (adv.service_uuids or [])]
+            if name == BLE_NAME:
+                return address
+            if target_service in service_uuids and not service_match:
+                service_match = address
+
+        return service_match
 
     async def _disconnect(self) -> None:
         if self.client is not None:
@@ -125,13 +135,60 @@ class BleImuReader:
         text = raw.decode("utf-8", errors="ignore").strip()
         try:
             data = json.loads(text)
-            back_angle = float(data.get("backAngle", data.get("angle", 15.0)))
-            motion_amount = float(data.get("motion", data.get("motionAmount", 0.0)))
+            if not isinstance(data, dict):
+                raise ValueError("JSON payload is not an object")
+            back_angle, motion_amount = self._parse_json_object(data)
         except Exception:
-            back_angle = float(text)
-            motion_amount = 0.0
+            back_angle, motion_amount = self._parse_text_fallback(text)
 
         return ImuReading(back_angle=back_angle, motion_amount=motion_amount, connected=True)
+
+    def _parse_json_object(self, data: dict) -> tuple[float, float]:
+        if "backAngle" in data or "angle" in data:
+            back_angle = float(data.get("backAngle", data.get("angle", 15.0)))
+        elif all(key in data for key in ("ax", "ay", "az")):
+            back_angle = self._angle_from_accel(float(data["ax"]), float(data["ay"]), float(data["az"]))
+        else:
+            back_angle = 15.0
+
+        if "motion" in data or "motionAmount" in data:
+            motion_amount = float(data.get("motion", data.get("motionAmount", 0.0)))
+        elif all(key in data for key in ("gx", "gy", "gz")):
+            motion_amount = self._gyro_magnitude(float(data["gx"]), float(data["gy"]), float(data["gz"]))
+        else:
+            motion_amount = 0.0
+
+        return back_angle, motion_amount
+
+    def _parse_text_fallback(self, text: str) -> tuple[float, float]:
+        values = {key: self._extract_number(text, key) for key in ("backAngle", "angle", "motion", "motionAmount", "ax", "ay", "az", "gx", "gy", "gz")}
+
+        if values["backAngle"] is not None or values["angle"] is not None:
+            back_angle = float(values["backAngle"] if values["backAngle"] is not None else values["angle"])
+        elif all(values[key] is not None for key in ("ax", "ay", "az")):
+            back_angle = self._angle_from_accel(float(values["ax"]), float(values["ay"]), float(values["az"]))
+        else:
+            back_angle = float(text)
+
+        if values["motion"] is not None or values["motionAmount"] is not None:
+            motion_amount = float(values["motion"] if values["motion"] is not None else values["motionAmount"])
+        elif all(values[key] is not None for key in ("gx", "gy", "gz")):
+            motion_amount = self._gyro_magnitude(float(values["gx"]), float(values["gy"]), float(values["gz"]))
+        else:
+            motion_amount = 0.0
+
+        return back_angle, motion_amount
+
+    def _extract_number(self, text: str, key: str) -> Optional[float]:
+        match = re.search(rf'"{re.escape(key)}"\s*:\s*(-?\d+(?:\.\d+)?)', text)
+        return float(match.group(1)) if match else None
+
+    def _angle_from_accel(self, ax: float, ay: float, az: float) -> float:
+        side_magnitude = math.sqrt((ax * ax) + (az * az))
+        return abs(math.atan2(ay, side_magnitude) * 180.0 / math.pi)
+
+    def _gyro_magnitude(self, gx: float, gy: float, gz: float) -> float:
+        return math.sqrt((gx * gx) + (gy * gy) + (gz * gz))
 
     def _mock_reading(self) -> ImuReading:
         now = time.monotonic()

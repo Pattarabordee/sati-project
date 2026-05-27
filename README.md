@@ -37,6 +37,7 @@ Sati is a sensor-driven posture and focus coach for desk work. The web app reads
 | `src/app/` | Next.js App Router entry, metadata, global styles, light/dark theme tokens |
 | `sati_ws_bridge.py` | Python WebSocket bridge for UNO Q Linux side |
 | `requirements.txt` | Python dependencies for the bridge |
+| `unoq.cmd` | Windows helper for one-command UNO Q deploy/status/open/logs |
 | `arduino/` | Nano BLE and UNO Q MCU sketches |
 | `docs/` | Demo script, business canvas, pitch outline, judging rubric map |
 | `docs/NANO_JSON_BLE.md` | BLE JSON contract between Nano 33 BLE Sense and UNO Q |
@@ -127,6 +128,26 @@ python -m http.server 8080 --directory out --bind 0.0.0.0
 
 GitHub Actions sets `GITHUB_ACTIONS=true`, so production Pages builds automatically use `basePath` and `assetPrefix` for `/sati-project`.
 Live demo URL: https://pattarabordee.github.io/sati-project/
+
+### One-Command UNO Q Flow
+
+From the repo root on Windows `cmd.exe`:
+
+```bat
+unoq deploy
+unoq status
+unoq open
+unoq scan
+unoq nano
+```
+
+If `LPK.local` is unavailable, pass the current board IP:
+
+```bat
+unoq deploy --uno arduino@172.16.61.210
+```
+
+For details, see [`docs/UNOQ_WIRELESS_DEPLOY.md`](docs/UNOQ_WIRELESS_DEPLOY.md).
 
 ## Deploy to Arduino UNO Q via Arduino App Lab
 

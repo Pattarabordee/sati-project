@@ -18,6 +18,12 @@ Nano payload:
 {"backAngle":18.5,"motion":1.2}
 ```
 
+Recommended: keep the BLE JSON compact. Long BLE values can be truncated by the characteristic size.
+
+The UNO Q bridge also accepts a raw sensor JSON shape with `ax`, `ay`, `az`, `gx`, `gy`, and `gz`. When `backAngle` is missing, it estimates `backAngle` from accelerometer values and estimates `motion` from gyroscope magnitude.
+
+The bridge can find the Nano by BLE service UUID even if the advertised name is different, such as `HARU-NANO`.
+
 UNO Q bridge output to browser:
 
 ```json
