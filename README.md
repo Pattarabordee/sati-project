@@ -39,6 +39,7 @@ Sati is a sensor-driven posture and focus coach for desk work. The web app reads
 | `requirements.txt` | Python dependencies for the bridge |
 | `arduino/` | Nano BLE and UNO Q MCU sketches |
 | `docs/` | Demo script, business canvas, pitch outline, judging rubric map |
+| `docs/TEAM_WORKFLOW.md` | Team branching, ownership, PR checklist, and UNO Q deploy workflow |
 | `legacy/` | Original vanilla HTML/JS prototype kept for reference |
 | `public/` | Static assets such as favicon |
 
