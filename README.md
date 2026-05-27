@@ -39,6 +39,7 @@ Sati is a sensor-driven posture and focus coach for desk work. The web app reads
 | `requirements.txt` | Python dependencies for the bridge |
 | `arduino/` | Nano BLE and UNO Q MCU sketches |
 | `docs/` | Demo script, business canvas, pitch outline, judging rubric map |
+| `docs/NANO_JSON_BLE.md` | BLE JSON contract between Nano 33 BLE Sense and UNO Q |
 | `legacy/` | Original vanilla HTML/JS prototype kept for reference |
 | `public/` | Static assets such as favicon |
 
@@ -106,7 +107,7 @@ If hardware is not connected yet, the bridge keeps running with fallback data an
 | `SATI_WS_HOST` | `0.0.0.0` | Host for WebSocket bind |
 | `SATI_WS_PORT` | `8765` | WebSocket port |
 | `SATI_BLE_NAME` | `Sati-Nano` | BLE device name for Nano 33 |
-| `SATI_BLE_CHAR` | empty | GATT characteristic UUID for back angle |
+| `SATI_BLE_CHAR` | `19B10001-E8F2-537E-4F6C-D104768A1214` | GATT characteristic UUID for Nano JSON |
 | `SATI_SERIAL_PORT` | `/dev/ttyACM0` | Serial port for ToF bridge (Windows: `COM3`, etc.) |
 | `SATI_SERIAL_BAUD` | `115200` | Serial baud rate |
 | `SATI_HUNCHED_ANGLE` | `20` | Back angle threshold for hunched posture |
