@@ -7,12 +7,15 @@
 const char DEVICE_NAME[] = "Sati-Nano";
 const char SERVICE_UUID[] = "19B10000-E8F2-537E-4F6C-D104768A1214";
 const char CHAR_UUID[] = "19B10001-E8F2-537E-4F6C-D104768A1214";
+const char INBOX_CHAR_UUID[] = "19B10002-E8F2-537E-4F6C-D104768A1214";
 
 const unsigned long UPDATE_MS = 200;
 const unsigned long CALIBRATION_MS = 5000;
+const unsigned long MESSAGE_LED_MS = 600;
 
 BLEService postureService(SERVICE_UUID);
 BLECharacteristic postureCharacteristic(CHAR_UUID, BLERead | BLENotify, 32);
+BLEStringCharacteristic inboxCharacteristic(INBOX_CHAR_UUID, BLEWrite, 40);
 
 float zeroAngle = 0.0;
 float lastGx = 0.0;
@@ -21,6 +24,7 @@ float lastGz = 0.0;
 bool hasLastGyro = false;
 bool wasConnected = false;
 unsigned long lastUpdate = 0;
+unsigned long messageLedUntil = 0;
 
 float angleFromAccel(float ax, float ay, float az) {
   // ใช้แกน Y เป็นค่าเริ่มต้น เพราะติด Nano กลางหลังแบบตั้ง; ถ้าติดคนละทิศให้ swap แกนตรงนี้
@@ -109,6 +113,9 @@ void setup() {
   while (!Serial && millis() < 3000) {
   }
 
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+
   Serial.println("Sati Nano back-angle sensor booting...");
 
   if (!IMU.begin()) {
@@ -131,6 +138,7 @@ void setup() {
   BLE.setDeviceName(DEVICE_NAME);
   BLE.setAdvertisedService(postureService);
   postureService.addCharacteristic(postureCharacteristic);
+  postureService.addCharacteristic(inboxCharacteristic);
   BLE.addService(postureService);
 
   writePayload(0.0, 0.0);
@@ -155,6 +163,15 @@ void loop() {
   }
 
   wasConnected = isConnected;
+
+  if (inboxCharacteristic.written()) {
+    String message = inboxCharacteristic.value();
+    Serial.print("BLE message from UNO Q: ");
+    Serial.println(message);
+    messageLedUntil = millis() + MESSAGE_LED_MS;
+  }
+
+  digitalWrite(LED_BUILTIN, millis() < messageLedUntil ? HIGH : LOW);
 
   if (millis() - lastUpdate >= UPDATE_MS) {
     lastUpdate = millis();
