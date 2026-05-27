@@ -842,9 +842,26 @@ export function SatiApp() {
             <TabsTrigger value="hr">HR Dashboard</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="coach" className="grid view-panel">
-            <Card className="hero">
-              <CardHeader className="hero-head">
+          <TabsContent value="coach" className="grove-view view-panel">
+            <Card className="grove-scene">
+              <div className="grove-bg" aria-hidden="true">
+                <span className="grove-canopy canopy-left" />
+                <span className="grove-canopy canopy-right" />
+                <span className="grove-sunbeam beam-one" />
+                <span className="grove-sunbeam beam-two" />
+                <span className="grove-fog fog-one" />
+                <span className="grove-fog fog-two" />
+                <span className="anime-cloud cloud-one" />
+                <span className="anime-cloud cloud-two" />
+                <span className="anime-sparkle sparkle-a" />
+                <span className="anime-sparkle sparkle-b" />
+                <span className="anime-sparkle sparkle-c" />
+                <span className="floating-leaf leaf-a" />
+                <span className="floating-leaf leaf-b" />
+                <span className="floating-leaf leaf-c" />
+              </div>
+
+              <CardHeader className="grove-head">
                 <div className="state-line" data-testid="state-line" aria-live="polite">
                   <CardTitle className="state-txt" data-testid="state-title">
                     {stateCopy[app.state].title}
@@ -855,103 +872,113 @@ export function SatiApp() {
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="hero-content">
-                <div className="plantwrap">
-                  <div className="halo" />
-                  <PlantAvatar decorations={app.decorations} />
 
-                  <aside className="action-card" aria-live="polite">
-                    <div>
-                      <div className="ac-title">{activeStretch.title}</div>
-                      <div className="ac-copy">{activeStretch.copy}</div>
-                      <Button className="ac-btn" onClick={handleStretchDone}>
-                        <Check data-icon="inline-start" aria-hidden="true" />
-                        ทำเสร็จแล้ว · +10 GP
-                      </Button>
-                    </div>
-                    <div className="ac-ill" aria-hidden="true">
-                      <svg viewBox="0 0 60 76">
-                        <circle cx="30" cy="12" r="7" />
-                        <path d="M30 19V46" />
-                        <path d="M30 26L16 34" />
-                        <path d="M30 26L46 18" />
-                        <path d="M30 46L20 66" />
-                        <path d="M30 46L42 66" />
-                      </svg>
-                    </div>
-                  </aside>
-                </div>
+              <CardContent className="grove-content">
+                <section className="grove-plant-stage" aria-label="Sati Grove plant scene">
+                  <div className="grove-ring" aria-hidden="true" />
+                  <div className="grove-ground" aria-hidden="true" />
+                  <PlantAvatar
+                    decorations={app.decorations}
+                    state={app.state}
+                    stageIndex={stageIndex}
+                    levelPulse={levelPulse}
+                  />
 
-                <div className={levelPulse ? "growth level-pop" : "growth"}>
-                  <div className="growth-top">
-                    <span className="stage-name" data-testid="stage-name">
-                      {currentStage.name}
-                    </span>
-                    <span>
-                      {stageIndex === stages.length - 1
-                        ? `${app.gp} GP · MAX`
-                        : `${app.gp} / ${currentStage.next} GP`}
-                    </span>
-                  </div>
-                  <Progress className="growth-progress" value={stageProgress} data-testid="growth-progress" />
-                  <div className="stage-track">
-                    {stages.map((stage, index) => (
-                      <span key={stage.name} className={index <= stageIndex ? "on" : ""}>
-                        {stage.name.split(" ")[0]}
+                  {app.state === "action" ? (
+                    <aside className="action-card quest-card" aria-live="polite">
+                      <div>
+                        <div className="ac-kicker">{activeStretch.title}</div>
+                        <div className="ac-title">Complete recovery quest</div>
+                        <div className="ac-copy">{activeStretch.copy}</div>
+                        <Button className="ac-btn" onClick={handleStretchDone}>
+                          <Check data-icon="inline-start" aria-hidden="true" />
+                          Complete recovery quest · +10 GP
+                        </Button>
+                      </div>
+                      <div className="ac-ill" aria-hidden="true">
+                        <svg viewBox="0 0 60 76">
+                          <circle cx="30" cy="12" r="7" />
+                          <path d="M30 19V46" />
+                          <path d="M30 26L16 34" />
+                          <path d="M30 26L46 18" />
+                          <path d="M30 46L20 66" />
+                          <path d="M30 46L42 66" />
+                        </svg>
+                      </div>
+                    </aside>
+                  ) : null}
+                </section>
+
+                <aside className="grove-hud" aria-label="Sati live game HUD">
+                  <div className={levelPulse ? "growth xp-ribbon level-pop" : "growth xp-ribbon"}>
+                    <div className="growth-top">
+                      <span className="stage-name" data-testid="stage-name">
+                        {currentStage.name}
                       </span>
-                    ))}
+                      <span>
+                        {stageIndex === stages.length - 1
+                          ? `${app.gp} GP · MAX`
+                          : `${app.gp} / ${currentStage.next} GP`}
+                      </span>
+                    </div>
+                    <Progress className="growth-progress" value={stageProgress} data-testid="growth-progress" />
+                    <div className="stage-track">
+                      {stages.map((stage, index) => (
+                        <span key={stage.name} className={index <= stageIndex ? "on" : ""}>
+                          {stage.name.split(" ")[0]}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
+
+                  <section className="signals hud-panel" aria-label="Live sensor signal HUD">
+                    <CardHeader className="compact-card-head">
+                      <CardTitle className="sg-title">Signal HUD</CardTitle>
+                      <CardDescription className="sg-sub">
+                        Sensor stream — IMU, ToF, camera
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="compact-card-content" aria-live="polite" aria-atomic="false">
+                      <div className={live ? "sensor-status live" : "sensor-status"} aria-live="polite">
+                        {live ? (
+                          <Wifi data-icon="inline-start" aria-hidden="true" />
+                        ) : (
+                          <WifiOff data-icon="inline-start" aria-hidden="true" />
+                        )}
+                        {live ? "Arduino WebSocket: live" : "Arduino WebSocket: mock fallback"}
+                      </div>
+                      <SignalRow testId="signal-back-angle" label="Back Angle" detail="IMU · Nano 33 BLE" value={Math.round(app.ang)} unit="°" stat={angStat(app.ang)} />
+                      <SignalRow testId="signal-screen-distance" label="Screen Distance" detail="Modulino ToF" value={Math.round(app.dist)} unit="cm" stat={app.dist < thresholds.closeCm ? "Too Close" : "Good"} />
+                      <SignalRow testId="signal-posture-class" label="Posture Class" detail="sensor cue" value={app.postureClass} stat={live ? "Arduino live" : "Mock fallback"} posture />
+                      <SignalRow testId="signal-sitting-time" label="Sitting Time" detail="since last break" value={fmt(app.sit)} stat={app.sit >= thresholds.longSit ? "Take a break" : "Counting"} />
+                    </CardContent>
+                  </section>
+
+                  <section className="missions quest-panel" aria-label="Daily quests">
+                    <CardHeader className="compact-card-head mission-head">
+                      <CardTitle className="m-title">Daily Quests</CardTitle>
+                      <CardDescription>Sensor-confirmed missions</CardDescription>
+                    </CardHeader>
+                    <CardContent className="compact-card-content mission-list">
+                      {(Object.keys(missionCopy) as MissionId[]).map((id) => (
+                        <div key={id} className={app.missionsDone[id] ? "mission done" : "mission"}>
+                          <div className="m-check">
+                            <Check aria-hidden="true" />
+                          </div>
+                          <div className="m-body">
+                            <div className="m-name">{missionCopy[id].name}</div>
+                          </div>
+                          <div className="m-reward">
+                            <span className="coin-small">¢</span>
+                            {missionCopy[id].reward}
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </section>
+                </aside>
               </CardContent>
             </Card>
-
-            <div className="side">
-              <Card className="signals">
-                <CardHeader className="compact-card-head">
-                  <CardTitle className="sg-title">Live Signals</CardTitle>
-                  <CardDescription className="sg-sub">
-                    ค่าจริงจากเซนเซอร์ — IMU, ToF, กล้อง
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="compact-card-content" aria-live="polite" aria-atomic="false">
-                  <div className={live ? "sensor-status live" : "sensor-status"} aria-live="polite">
-                    {live ? (
-                      <Wifi data-icon="inline-start" aria-hidden="true" />
-                    ) : (
-                      <WifiOff data-icon="inline-start" aria-hidden="true" />
-                    )}
-                    {live ? "Arduino WebSocket: live" : "Arduino WebSocket: mock fallback"}
-                  </div>
-                  <SignalRow testId="signal-back-angle" label="Back Angle" detail="IMU · Nano 33 BLE" value={Math.round(app.ang)} unit="°" stat={angStat(app.ang)} />
-                  <SignalRow testId="signal-screen-distance" label="Screen Distance" detail="Modulino ToF" value={Math.round(app.dist)} unit="cm" stat={app.dist < thresholds.closeCm ? "Too Close" : "Good"} />
-                  <SignalRow testId="signal-posture-class" label="Posture Class" detail="sensor cue" value={app.postureClass} stat={live ? "Arduino live" : "Mock fallback"} posture />
-                  <SignalRow testId="signal-sitting-time" label="Sitting Time" detail="since last break" value={fmt(app.sit)} stat={app.sit >= thresholds.longSit ? "Take a break" : "Counting"} />
-                </CardContent>
-              </Card>
-
-              <Card className="missions">
-                <CardHeader className="compact-card-head mission-head">
-                  <CardTitle className="m-title">ภารกิจวันนี้</CardTitle>
-                  <CardDescription>Daily Missions</CardDescription>
-                </CardHeader>
-                <CardContent className="compact-card-content mission-list">
-                  {(Object.keys(missionCopy) as MissionId[]).map((id) => (
-                    <div key={id} className={app.missionsDone[id] ? "mission done" : "mission"}>
-                      <div className="m-check">
-                        <Check aria-hidden="true" />
-                      </div>
-                      <div className="m-body">
-                        <div className="m-name">{missionCopy[id].name}</div>
-                      </div>
-                      <div className="m-reward">
-                        <span className="coin-small">¢</span>
-                        {missionCopy[id].reward}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
           </TabsContent>
 
           <TabsContent value="insights" className="view-panel insights-view">
@@ -1037,7 +1064,7 @@ export function SatiApp() {
       </div>
 
       <Dialog open={guideOpen} onOpenChange={(open) => (open ? setGuideOpen(true) : completeGuide())}>
-        <DialogContent className="guide-card">
+        <DialogContent className="guide-card" aria-describedby="sati-guide-description">
           <button className="guide-skip" type="button" onClick={completeGuide}>
             ข้าม / Skip
           </button>
@@ -1045,7 +1072,7 @@ export function SatiApp() {
           <div className="guide-step">ขั้นที่ {guideIndex + 1} / {guideSteps.length}</div>
           <DialogHeader>
             <DialogTitle className="guide-h">{selectedGuide.title}</DialogTitle>
-            <DialogDescription className="guide-p">
+            <DialogDescription id="sati-guide-description" className="guide-p">
               {selectedGuide.copy}
             </DialogDescription>
           </DialogHeader>
@@ -1066,11 +1093,11 @@ export function SatiApp() {
       </Dialog>
 
       <Dialog open={shopOpen} onOpenChange={setShopOpen}>
-        <DialogContent className="shop-card">
+        <DialogContent className="shop-card" aria-describedby="sati-shop-description">
           <DialogHeader className="shop-head">
             <div>
               <DialogTitle className="shop-title">ร้านค้าตกแต่ง</DialogTitle>
-              <DialogDescription className="shop-sub">
+              <DialogDescription id="sati-shop-description" className="shop-sub">
                 ใช้เหรียญที่ได้จากภารกิจมาแต่งต้นไม้ของคุณ · มี <b>{app.coins}</b> เหรียญ
               </DialogDescription>
             </div>
