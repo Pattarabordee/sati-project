@@ -42,6 +42,7 @@ BLE_SERVICE_UUID = os.getenv("SATI_BLE_SERVICE", "19B10000-E8F2-537E-4F6C-D10476
 DEFAULT_BLE_CHAR_UUID = "19B10001-E8F2-537E-4F6C-D104768A1214"
 BLE_CHAR_UUID = os.getenv("SATI_BLE_CHAR", DEFAULT_BLE_CHAR_UUID)
 BLE_SCAN_TIMEOUT_SEC = float(os.getenv("SATI_BLE_SCAN_TIMEOUT", "4"))
+BLE_ALLOW_SERVICE_FALLBACK = os.getenv("SATI_BLE_ALLOW_SERVICE_FALLBACK", "false").lower() in {"1", "true", "yes", "on"}
 
 SERIAL_PORT = os.getenv("SATI_SERIAL_PORT", "/dev/ttyACM0")
 SERIAL_BAUD = int(os.getenv("SATI_SERIAL_BAUD", "115200"))
@@ -103,20 +104,38 @@ class BleImuReader:
             self._log_mock_once()
 
     async def _find_device_address(self) -> str:
-        # หาอุปกรณ์จากชื่อหรือ service UUID; service UUID ช่วยเมื่อทีมตั้งชื่อ Nano คนละชื่อ
+        # Prefer the team's Nano name first, so UNO Q does not attach to another board by accident.
         results = await BleakScanner.discover(timeout=BLE_SCAN_TIMEOUT_SEC, return_adv=True)
         service_match = ""
+        service_match_names = ""
         target_service = BLE_SERVICE_UUID.lower()
 
         for address, (device, adv) in results.items():
-            name = device.name or adv.local_name or ""
+            names = [name for name in (device.name, adv.local_name) if name]
             service_uuids = [uuid.lower() for uuid in (adv.service_uuids or [])]
-            if name == BLE_NAME:
+            if BLE_NAME in names:
                 return address
             if target_service in service_uuids and not service_match:
                 service_match = address
+                service_match_names = ", ".join(names) or "unnamed"
 
-        return service_match
+        if service_match and BLE_ALLOW_SERVICE_FALLBACK:
+            logging.warning(
+                "BLE device named %r not found; using service UUID fallback at %s",
+                BLE_NAME,
+                service_match,
+            )
+            return service_match
+
+        if service_match:
+            logging.warning(
+                "Found Sati BLE service at %s (%s), but device name was not %r. Set SATI_BLE_ALLOW_SERVICE_FALLBACK=true to allow it.",
+                service_match,
+                service_match_names,
+                BLE_NAME,
+            )
+
+        return ""
 
     async def _disconnect(self) -> None:
         if self.client is not None:
@@ -382,6 +401,11 @@ async def main() -> None:
     )
     if BLE_CHAR_UUID == "":
         logging.warning("SATI_BLE_CHAR not set — BLE data will not be read. Set env var to enable.")
+    logging.info("BLE target name: %s", BLE_NAME)
+    if BLE_ADDRESS:
+        logging.info("BLE target address override enabled: %s", BLE_ADDRESS)
+    elif BLE_ALLOW_SERVICE_FALLBACK:
+        logging.warning("BLE service UUID fallback is enabled; exact name %s is still preferred.", BLE_NAME)
 
     stop_event = asyncio.Event()
     broadcaster = WebSocketBroadcaster()

@@ -68,6 +68,7 @@ PowerShell script path:
 - WebSocket: `ws://LPK.local:8765`
 - BLE device name: `Sati-Nano`
 - BLE sensor characteristic: `19B10001-E8F2-537E-4F6C-D104768A1214`
+- BLE service fallback: off by default, so UNO Q connects to `Sati-Nano` first and avoids similarly flashed boards
 
 ถ้าต้องใช้ IP:
 
@@ -144,6 +145,7 @@ ssh unoq "hostname"
 | SSH timeout | เช็กว่า laptop กับ UNO Q อยู่ network เดียวกัน |
 | หน้าเว็บโหลดแต่ Live Signals mock | รัน `.\scripts\unoq_status.ps1` แล้วดูว่า port `8765` listen อยู่ไหม |
 | Back angle ไม่ขยับ | Nano BLE ยังไม่ connect หรือ `SATI_BLE_CHAR` ไม่ตรง |
+| Log บอกเจอ Sati BLE service แต่ไม่ต่อ | บอร์ดที่เจอไม่ได้ชื่อ `Sati-Nano`; แก้ชื่อ sketch หรือ deploy ด้วย `-BleAllowServiceFallback true` เฉพาะตอนตั้งใจ |
 | Screen distance เป็น `60` ตลอด | ToF serial bridge ยังไม่ถูกอ่าน หรือ serial path ไม่ตรง |
 
 ## References

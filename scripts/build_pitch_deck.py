@@ -97,7 +97,8 @@ SLIDES = [
             "Movement cue confirms break behavior.",
             "Web app turns signals into a 3-state coach: NORMAL -> WARNING -> ACTION.",
             "Growth mechanic makes the plant grow from real sensor-confirmed behavior.",
-            "HR view shows aggregate team pattern only.",
+            "Second-Brain view summarizes observed behavior patterns.",
+            "Persona Avatar form creates an LLM-ready brief for avatar personalization.",
         ],
         note=(
             "Slide 4: Solution (45s)\n\n"
@@ -106,7 +107,8 @@ SLIDES = [
             "- Movement cue confirms break behavior.\n"
             "- Web app turns signals into a 3-state coach: NORMAL -> WARNING -> ACTION.\n"
             "- Growth mechanic makes the plant grow from real sensor-confirmed behavior.\n"
-            "- HR view shows aggregate team pattern only."
+            "- Second-Brain view summarizes observed behavior patterns.\n"
+            "- Persona Avatar form creates an LLM-ready brief for avatar personalization."
         ),
         kind="solution",
     ),
@@ -134,7 +136,7 @@ SLIDES = [
             "Stretch completion",
             "Growth level-up",
             "Second-Brain insights",
-            "HR aggregate dashboard",
+            "Persona Avatar recommendation",
         ],
         note=(
             "Slide 6: Demo (Live)\n\n"
@@ -144,7 +146,7 @@ SLIDES = [
             "3. Stretch completion\n"
             "4. Growth level-up\n"
             "5. Second-Brain insights\n"
-            "6. HR aggregate dashboard"
+            "6. Persona Avatar recommendation"
         ),
         kind="demo",
     ),
@@ -152,15 +154,15 @@ SLIDES = [
         title="Market & Business",
         body=[
             "Beachhead: B2B office wellness pilot for tech companies and co-working spaces.",
-            "Revenue: hardware kit + monthly aggregate dashboard.",
-            "Expansion: decorative content, team challenges, privacy-preserving aggregate reports.",
+            "Revenue: hardware kit + optional wellness insight reports.",
+            "Expansion: decorative content, team challenges, privacy-preserving team-ready reports.",
             "Market sizing source to be added before final submission.",
         ],
         note=(
             "Slide 7: Market & Business (30s)\n\n"
             "- Beachhead: B2B office wellness pilot for tech companies and co-working spaces.\n"
-            "- Revenue: hardware kit + monthly aggregate dashboard.\n"
-            "- Expansion: decorative content, team challenges, privacy-preserving aggregate reports.\n"
+            "- Revenue: hardware kit + optional wellness insight reports.\n"
+            "- Expansion: decorative content, team challenges, privacy-preserving team-ready reports.\n"
             "- Market size: [ทีมต้องเติม source จากรายงาน corporate wellness / workplace wellness ที่น่าเชื่อถือ]\n\n"
             'Speaker note:\n"We start where the hardware value is obvious: offices that already invest in wellness but cannot see behavior patterns in realtime."'
         ),
@@ -183,10 +185,10 @@ SLIDES = [
     ),
     SlideSpec(
         title="Closing",
-        body=["sensor -> insight -> action -> reward -> team learning"],
+        body=["sensor -> insight -> action -> reward -> daily awareness"],
         note=(
             "Closing Line\n\n"
-            '"Sati is not just a reminder. It is a loop: sensor -> insight -> action -> reward -> team-level learning."'
+            '"Sati is not just a reminder. It is a loop: sensor -> insight -> action -> reward -> daily awareness."'
         ),
         kind="closing",
     ),

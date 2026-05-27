@@ -24,6 +24,7 @@ BLE_CHAR_UUID = os.getenv(
     "19B10001-E8F2-537E-4F6C-D104768A1214",
 )
 SCAN_TIMEOUT_SEC = float(os.getenv("SATI_BLE_SCAN_TIMEOUT", "5"))
+ALLOW_SERVICE_FALLBACK = os.getenv("SATI_BLE_ALLOW_SERVICE_FALLBACK", "false").lower() in {"1", "true", "yes", "on"}
 
 
 async def find_device_address() -> str:
@@ -32,17 +33,27 @@ async def find_device_address() -> str:
 
     results = await BleakScanner.discover(timeout=SCAN_TIMEOUT_SEC, return_adv=True)
     service_match = ""
+    service_match_names = ""
     target_service = BLE_SERVICE_UUID.lower()
 
     for address, (device, adv) in results.items():
-        name = device.name or adv.local_name or ""
+        names = [name for name in (device.name, adv.local_name) if name]
         service_uuids = [uuid.lower() for uuid in (adv.service_uuids or [])]
-        if name == BLE_NAME:
+        if BLE_NAME in names:
             return address
         if target_service in service_uuids and not service_match:
             service_match = address
+            service_match_names = ", ".join(names) or "unnamed"
 
-    return service_match
+    if service_match and ALLOW_SERVICE_FALLBACK:
+        print(f"warning: {BLE_NAME!r} not found; using service UUID fallback at {service_match}")
+        return service_match
+
+    if service_match:
+        print(f"warning: found Sati BLE service at {service_match} ({service_match_names}), but device name was not {BLE_NAME!r}")
+        print("set SATI_BLE_ALLOW_SERVICE_FALLBACK=true if you intentionally want to read that board")
+
+    return ""
 
 
 async def read_samples(count: int, delay_sec: float) -> None:

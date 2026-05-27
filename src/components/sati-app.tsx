@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Leaf, Monitor, Moon, RotateCcw, ShoppingBag, Sun, Wifi, WifiOff, X } from "lucide-react";
+import { Check, Copy, Leaf, Monitor, Moon, Palette, RotateCcw, ShoppingBag, Sparkles, Sun, UserRound, Wifi, WifiOff, X } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
 import { PlantAvatar } from "@/components/plant-avatar";
@@ -33,8 +33,33 @@ type MockMode = "normal" | "slouch" | "long" | "movement";
 type SensorSource = "mock" | "ws";
 type MissionId = "m1" | "m2" | "m3";
 type ThemePref = "light" | "dark" | "system";
+type WorkStyle = "deep-focus" | "meetings" | "creative" | "mixed";
+type MotivationStyle = "calm" | "challenge" | "story" | "collection";
+type CompanionStyle = "gentle" | "cheerful" | "focused" | "playful";
+type VisualTone = "forest" | "sky" | "sunset" | "night";
 
 type MissionsDone = Record<MissionId, boolean>;
+
+type PersonaProfile = {
+  nickname: string;
+  role: string;
+  workStyle: WorkStyle;
+  motivation: MotivationStyle;
+  companion: CompanionStyle;
+  visualTone: VisualTone;
+  notes: string;
+};
+
+type AvatarRecommendation = {
+  name: string;
+  title: string;
+  emoji: string;
+  palette: string;
+  summary: string;
+  why: string[];
+  tags: string[];
+  prompt: string;
+};
 
 type ProgressMemory = {
   gp?: number;
@@ -47,6 +72,7 @@ type ProgressMemory = {
   owned?: string[];
   decorations?: string[];
   theme?: ThemePref;
+  persona?: PersonaProfile;
 };
 
 type AppState = {
@@ -144,6 +170,81 @@ const shopItems = [
   { id: "glow", emoji: "✨", name: "ต้นไม้เรืองแสง", price: 300 },
 ];
 
+const personaDefaults: PersonaProfile = {
+  nickname: "",
+  role: "Desk worker",
+  workStyle: "mixed",
+  motivation: "calm",
+  companion: "gentle",
+  visualTone: "forest",
+  notes: "",
+};
+
+const personaChoices = {
+  workStyle: [
+    { value: "deep-focus", label: "Deep Focus", copy: "ชอบทำงานยาวแบบไม่ถูกรบกวน" },
+    { value: "meetings", label: "Meeting Flow", copy: "วันทำงานมีประชุมและสลับงานบ่อย" },
+    { value: "creative", label: "Creative Sprint", copy: "ชอบไอเดีย ภาพ และ mood ที่มีชีวิต" },
+    { value: "mixed", label: "Balanced Day", copy: "มีทั้งโฟกัส ประชุม และพักสั้น ๆ" },
+  ],
+  motivation: [
+    { value: "calm", label: "Calm Nudges", copy: "อยากได้ cue เบา ๆ ไม่เร่ง" },
+    { value: "challenge", label: "Quest Energy", copy: "ชอบเป้าหมายและคะแนนชัด" },
+    { value: "story", label: "Tiny Story", copy: "ชอบความรู้สึกเหมือนมีเรื่องเล่า" },
+    { value: "collection", label: "Collectibles", copy: "ชอบสะสมของแต่งและปลดล็อก" },
+  ],
+  companion: [
+    { value: "gentle", label: "Gentle", copy: "นุ่ม สุภาพ อยู่เป็นเพื่อน" },
+    { value: "cheerful", label: "Cheerful", copy: "สดใส ให้กำลังใจง่าย ๆ" },
+    { value: "focused", label: "Focused", copy: "สั้น ชัด ไม่ขัดจังหวะ" },
+    { value: "playful", label: "Playful", copy: "มีลูกเล่นและรีแอคชันสนุก" },
+  ],
+  visualTone: [
+    { value: "forest", label: "Sage Forest", copy: "เขียว sage และธรรมชาติ" },
+    { value: "sky", label: "Soft Sky", copy: "ฟ้าอ่อน โปร่ง เบา" },
+    { value: "sunset", label: "Warm Sunset", copy: "amber terracotta อุ่น ๆ" },
+    { value: "night", label: "Night Grove", copy: "โหมดค่ำ ลึกแต่สบายตา" },
+  ],
+} as const;
+
+const avatarPresets: Record<string, Omit<AvatarRecommendation, "why" | "tags" | "prompt">> = {
+  grove: {
+    name: "Mori Sprout",
+    title: "ผู้ช่วยสายสงบที่โตไปพร้อมคุณ",
+    emoji: "🌱",
+    palette: "sage green + cream + leaf glow",
+    summary: "เหมาะกับคนที่อยากให้ Sati เป็นพื้นที่พักสายตาและค่อย ๆ ชวนกลับมาอยู่กับจังหวะที่ดี",
+  },
+  lantern: {
+    name: "Hinode Lantern",
+    title: "แสงอุ่นสำหรับวันทำงานที่มีหลายจังหวะ",
+    emoji: "🏮",
+    palette: "warm amber + terracotta + cream",
+    summary: "เหมาะกับคนที่ชอบ feedback ที่เห็นชัด มีพลัง แต่ยังไม่แข็งหรือเร่งเกินไป",
+  },
+  sky: {
+    name: "Aoi Leaf",
+    title: "avatar โปร่งเบาสำหรับโฟกัสยาว",
+    emoji: "🍃",
+    palette: "soft sky + sage teal + white mist",
+    summary: "เหมาะกับคนที่ต้องการตัวช่วยที่พูดน้อย ชัดเจน และไม่ดึงความสนใจจากงานหลัก",
+  },
+  bloom: {
+    name: "Hana Bloom",
+    title: "avatar สายสะสมและปลดล็อกของตกแต่ง",
+    emoji: "🌸",
+    palette: "soft blossom + mint + warm gold",
+    summary: "เหมาะกับคนที่สนุกกับ progression, cosmetic reward และ mission รายวัน",
+  },
+  night: {
+    name: "Yoru Bonsai",
+    title: "เพื่อนร่วมงานโหมดค่ำที่นิ่งและอบอุ่น",
+    emoji: "🌙",
+    palette: "night grove + muted teal + warm moonlight",
+    summary: "เหมาะกับคนที่ใช้ Sati ช่วงเย็นหรือชอบ UI นุ่มลึก ลดความสว่างบนจอ",
+  },
+};
+
 const missionCopy: Record<MissionId, { name: string; reward: number }> = {
   m1: { name: "พักครบ 3 ครั้ง", reward: 30 },
   m2: { name: "นั่งท่าดีครบ 1 Pomodoro", reward: 20 },
@@ -175,12 +276,68 @@ const stateCopy: Record<SatiState, { title: string; cue: string }> = {
   action: { title: "ACTION — ได้เวลาพักและยืดเส้น", cue: "wellness cue / แนะนำ" },
 };
 
-const teamBaseline = {
-  goodPct: 78,
-  restWindow: "15:00–16:00",
-  breaks: 24,
-  devices: 18,
-};
+function avatarKeyForPersona(persona: PersonaProfile) {
+  if (persona.visualTone === "night") return "night";
+  if (persona.motivation === "collection" || persona.companion === "playful") return "bloom";
+  if (persona.visualTone === "sunset" || persona.motivation === "challenge") return "lantern";
+  if (persona.workStyle === "deep-focus" || persona.companion === "focused") return "sky";
+  return "grove";
+}
+
+function labelForChoice<T extends string>(choices: readonly { value: T; label: string }[], value: T) {
+  return choices.find((choice) => choice.value === value)?.label ?? value;
+}
+
+function buildPersonaBrief(persona: PersonaProfile) {
+  return {
+    nickname: persona.nickname || "Sati user",
+    role: persona.role || "Desk worker",
+    workStyle: labelForChoice(personaChoices.workStyle, persona.workStyle),
+    motivation: labelForChoice(personaChoices.motivation, persona.motivation),
+    companionStyle: labelForChoice(personaChoices.companion, persona.companion),
+    visualTone: labelForChoice(personaChoices.visualTone, persona.visualTone),
+    notes: persona.notes || "No extra notes",
+    guardrails: [
+      "wellness companion only",
+      "use sensor observations, not claims",
+      "avoid medical wording",
+      "recommend avatar style, visual mood, and interaction tone",
+    ],
+  };
+}
+
+function recommendAvatar(persona: PersonaProfile): AvatarRecommendation {
+  const preset = avatarPresets[avatarKeyForPersona(persona)];
+  const workStyle = labelForChoice(personaChoices.workStyle, persona.workStyle);
+  const motivation = labelForChoice(personaChoices.motivation, persona.motivation);
+  const companion = labelForChoice(personaChoices.companion, persona.companion);
+  const visualTone = labelForChoice(personaChoices.visualTone, persona.visualTone);
+  const brief = buildPersonaBrief(persona);
+  const why = [
+    `Work rhythm: ${workStyle}`,
+    `Reward style: ${motivation}`,
+    `Companion tone: ${companion}`,
+    `Visual mood: ${visualTone}`,
+  ];
+  const tags = [workStyle, motivation, companion, visualTone];
+  const prompt = [
+    "You are an avatar designer for Sati, a sensor-driven wellness companion.",
+    "Understand this user persona and recommend one avatar concept for the app.",
+    "Keep the recommendation warm, game-like, and suitable for a calm desk-work experience.",
+    "Do not use medical claims or medical wording.",
+    "",
+    JSON.stringify(brief, null, 2),
+    "",
+    "Return: avatar name, visual style, personality tone, color palette, UI reactions for normal/warning/action, and one short reason.",
+  ].join("\n");
+
+  return {
+    ...preset,
+    why,
+    tags,
+    prompt,
+  };
+}
 
 function nowMs() {
   return typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -401,6 +558,7 @@ export function SatiApp() {
   const [levelPulse, setLevelPulse] = useState(false);
   const [themePref, setThemePref] = useState<ThemePref>("system");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [persona, setPersona] = useState<PersonaProfile>(personaDefaults);
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number | null>(null);
@@ -421,6 +579,8 @@ export function SatiApp() {
   const live = sensor.source === "ws";
   const activeStretch = stretches[app.stretchIdx % stretches.length];
   const selectedGuide = guideSteps[guideIndex];
+  const avatarRecommendation = useMemo(() => recommendAvatar(persona), [persona]);
+  const personaBrief = useMemo(() => buildPersonaBrief(persona), [persona]);
 
   const insights = useMemo(() => {
     const buckets: Record<BehaviorRow["period"], number> = {
@@ -446,16 +606,6 @@ export function SatiApp() {
     };
   }, [app.dist, behaviorLog]);
 
-  const hrAggregate = useMemo(() => {
-    const userGoodPct = behaviorLog.length ? insights.goodPct : teamBaseline.goodPct;
-    return {
-      goodPct: Math.round((teamBaseline.goodPct * 17 + userGoodPct) / 18),
-      restWindow: teamBaseline.restWindow,
-      breaks: teamBaseline.breaks + app.breaks,
-      devices: teamBaseline.devices,
-    };
-  }, [app.breaks, behaviorLog.length, insights.goodPct]);
-
   useEffect(() => {
     const memory = readMemory();
     const restored = createAppState(memory);
@@ -466,6 +616,7 @@ export function SatiApp() {
     setGuideSeen(memory?.guideSeen === true);
     setGuideOpen(memory?.guideSeen === true ? false : true);
     setThemePref(memory?.theme ?? "system");
+    setPersona({ ...personaDefaults, ...(memory?.persona || {}) });
     setHydrated(true);
   }, []);
 
@@ -508,6 +659,7 @@ export function SatiApp() {
       owned: app.owned,
       decorations: app.decorations,
       theme: themePref,
+      persona,
     };
     writeMemory(data);
   }, [
@@ -522,6 +674,7 @@ export function SatiApp() {
     app.owned,
     app.decorations,
     themePref,
+    persona,
   ]);
 
   useEffect(() => {
@@ -764,6 +917,19 @@ export function SatiApp() {
     setThemePref((prev) => (prev === "dark" ? "light" : prev === "light" ? "system" : "dark"));
   };
 
+  const updatePersona = <K extends keyof PersonaProfile>(key: K, value: PersonaProfile[K]) => {
+    setPersona((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const copyPersonaPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(avatarRecommendation.prompt);
+      toast.success("คัดลอก LLM brief แล้ว");
+    } catch {
+      toast.message("คัดลอกไม่สำเร็จ แต่ยังดู brief ได้บนหน้าจอ");
+    }
+  };
+
   const buyItem = (itemId: string) => {
     const item = shopItems.find((candidate) => candidate.id === itemId);
     if (!item) return;
@@ -839,7 +1005,7 @@ export function SatiApp() {
           <TabsList className="view-tabs" aria-label="Sati views">
             <TabsTrigger value="coach">Coach</TabsTrigger>
             <TabsTrigger value="insights">Second-Brain</TabsTrigger>
-            <TabsTrigger value="hr">HR Dashboard</TabsTrigger>
+            <TabsTrigger value="avatar">Avatar</TabsTrigger>
           </TabsList>
 
           <TabsContent value="coach" className="grid view-panel">
@@ -978,22 +1144,142 @@ export function SatiApp() {
             </div>
           </TabsContent>
 
-          <TabsContent value="hr" className="view-panel hr-view">
-            <ViewHead title="HR Dashboard" copy="ภาพรวมทีมแบบ anonymized aggregate เท่านั้น" chip="No individual data" />
-            <div className="hr-grid">
-              <Card className="hr-card hero-metric">
-                <CardContent className="hr-content">
-                  <span>Team posture time</span>
-                  <strong>{hrAggregate.goodPct}%</strong>
-                  <p>% เวลานั่งท่าดีเฉลี่ยทั้งทีม</p>
-                  <Progress className="metric-bar" value={hrAggregate.goodPct} />
+          <TabsContent value="avatar" className="view-panel persona-view">
+            <ViewHead
+              title="Persona Avatar"
+              copy="กรอกสไตล์การทำงานเพื่อสร้าง brief ให้ LLM แนะนำ avatar ที่เหมาะกับคุณ"
+              chip="LLM-ready"
+            />
+            <div className="persona-grid">
+              <Card className="persona-card persona-form-card">
+                <CardHeader className="compact-card-head">
+                  <CardTitle className="sg-title">
+                    <UserRound data-icon="inline-start" aria-hidden="true" />
+                    Persona Input
+                  </CardTitle>
+                  <CardDescription className="sg-sub">
+                    ข้อมูลนี้ใช้เพื่อปรับโทนภาพและบุคลิกของ avatar เท่านั้น
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="persona-content">
+                  <form className="persona-form" onSubmit={(event) => event.preventDefault()}>
+                    <div className="persona-fields">
+                      <label className="persona-field">
+                        <span>ชื่อเล่น</span>
+                        <input
+                          value={persona.nickname}
+                          onChange={(event) => updatePersona("nickname", event.target.value)}
+                          placeholder="เช่น LPK"
+                          aria-label="Persona nickname"
+                        />
+                      </label>
+                      <label className="persona-field">
+                        <span>บทบาท / งานหลัก</span>
+                        <input
+                          value={persona.role}
+                          onChange={(event) => updatePersona("role", event.target.value)}
+                          placeholder="เช่น Developer, Designer, Student"
+                          aria-label="Persona role"
+                        />
+                      </label>
+                    </div>
+
+                    <PersonaChoiceGroup
+                      legend="Work rhythm"
+                      value={persona.workStyle}
+                      choices={personaChoices.workStyle}
+                      onChange={(value) => updatePersona("workStyle", value)}
+                    />
+                    <PersonaChoiceGroup
+                      legend="Reward style"
+                      value={persona.motivation}
+                      choices={personaChoices.motivation}
+                      onChange={(value) => updatePersona("motivation", value)}
+                    />
+                    <PersonaChoiceGroup
+                      legend="Companion tone"
+                      value={persona.companion}
+                      choices={personaChoices.companion}
+                      onChange={(value) => updatePersona("companion", value)}
+                    />
+                    <PersonaChoiceGroup
+                      legend="Visual mood"
+                      value={persona.visualTone}
+                      choices={personaChoices.visualTone}
+                      onChange={(value) => updatePersona("visualTone", value)}
+                    />
+
+                    <label className="persona-field">
+                      <span>รายละเอียดเพิ่มเติมสำหรับ LLM</span>
+                      <textarea
+                        value={persona.notes}
+                        onChange={(event) => updatePersona("notes", event.target.value)}
+                        placeholder="เช่น ชอบโทน anime cozy, ไม่อยากให้ avatar เตือนแรง, อยากให้มี progression แบบเกม"
+                        aria-label="Extra persona notes for LLM"
+                      />
+                    </label>
+                  </form>
                 </CardContent>
               </Card>
-              <HrMetric label="Team rhythm" value={hrAggregate.restWindow} copy="based on 7-day rolling window" />
-              <HrMetric label="Break rhythm" value={`${hrAggregate.breaks} ครั้ง`} copy="จำนวนพักรวมแบบไม่ระบุตัวตนในวันนี้" />
-              <HrMetric label="Coverage" value={`${hrAggregate.devices} devices`} copy="อุปกรณ์ที่ส่งข้อมูล aggregate ล่าสุด" />
+
+              <Card className="persona-card avatar-result-card">
+                <CardHeader className="compact-card-head">
+                  <CardTitle className="sg-title">
+                    <Sparkles data-icon="inline-start" aria-hidden="true" />
+                    Recommended Avatar
+                  </CardTitle>
+                  <CardDescription className="sg-sub">
+                    ระบบแนะนำทันทีจาก persona และเตรียม prompt ให้ LLM ใช้ต่อได้
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="persona-content avatar-result">
+                  <div className="avatar-showcase" aria-live="polite">
+                    <div className="avatar-orb" aria-hidden="true">
+                      {avatarRecommendation.emoji}
+                    </div>
+                    <div>
+                      <div className="avatar-kicker">Best match</div>
+                      <h3>{avatarRecommendation.name}</h3>
+                      <p>{avatarRecommendation.title}</p>
+                    </div>
+                  </div>
+
+                  <div className="avatar-palette">
+                    <Palette aria-hidden="true" />
+                    <span>{avatarRecommendation.palette}</span>
+                  </div>
+
+                  <p className="avatar-summary">{avatarRecommendation.summary}</p>
+
+                  <div className="persona-tags" aria-label="Matched persona tags">
+                    {avatarRecommendation.tags.map((tag) => (
+                      <Badge key={tag} className="persona-tag" variant="secondary">
+                        {tag}
+                      </Badge>
+                    ))}
+                  </div>
+
+                  <ul className="avatar-reasons">
+                    {avatarRecommendation.why.map((reason) => (
+                      <li key={reason}>{reason}</li>
+                    ))}
+                  </ul>
+
+                  <div className="llm-brief">
+                    <div className="brief-head">
+                      <strong>LLM-ready brief</strong>
+                      <Button variant="outline" size="sm" onClick={copyPersonaPrompt}>
+                        <Copy data-icon="inline-start" aria-hidden="true" />
+                        Copy prompt
+                      </Button>
+                    </div>
+                    <pre>{JSON.stringify(personaBrief, null, 2)}</pre>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
+
         </Tabs>
 
         <footer>
@@ -1155,6 +1441,41 @@ function ViewHead({ title, copy, chip }: { title: string; copy: string; chip: st
   );
 }
 
+function PersonaChoiceGroup<T extends string>({
+  legend,
+  value,
+  choices,
+  onChange,
+}: {
+  legend: string;
+  value: T;
+  choices: readonly { value: T; label: string; copy: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <fieldset className="persona-fieldset">
+      <legend>{legend}</legend>
+      <div className="persona-choice-grid">
+        {choices.map((choice) => {
+          const selected = choice.value === value;
+          return (
+            <button
+              key={choice.value}
+              type="button"
+              className={selected ? "persona-choice selected" : "persona-choice"}
+              aria-pressed={selected}
+              onClick={() => onChange(choice.value)}
+            >
+              <span>{choice.label}</span>
+              <small>{choice.copy}</small>
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function InsightCard({ title, copy }: { title: string; copy: string }) {
   return (
     <Card className="insight-card">
@@ -1167,14 +1488,3 @@ function InsightCard({ title, copy }: { title: string; copy: string }) {
   );
 }
 
-function HrMetric({ label, value, copy }: { label: string; value: string; copy: string }) {
-  return (
-    <Card className="hr-card">
-      <CardContent className="hr-content">
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <p>{copy}</p>
-      </CardContent>
-    </Card>
-  );
-}

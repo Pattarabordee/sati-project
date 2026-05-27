@@ -56,26 +56,26 @@
 - อธิบายว่าเป็น pattern จาก behavior log ไม่ใช่ข้อความเดาสุ่ม
 - พูดว่า "นี่คือ AI logic layer แรก: สรุปช่วงเวลาและพฤติกรรมซ้ำ ๆ ให้ผู้ใช้เห็นตัวเอง"
 
-### Scene 6: HR Dashboard (20 วินาที)
+### Scene 6: Persona Avatar (25 วินาที)
 
-- เปิด tab "HR Dashboard"
-- ชี้ aggregate goodPct และ break rhythm
-- เน้น "No individual data"
-- พูดว่า "HR เห็นภาพรวมทีมเพื่อออกแบบกิจกรรม wellness ได้ แต่ไม่เจาะรายคน"
+- เปิด tab "Avatar"
+- กรอก persona สั้น ๆ เช่น role, work rhythm, companion tone
+- ชี้ recommended avatar และ LLM-ready brief
+- พูดว่า "ส่วนนี้ทำให้ Sati ปรับบุคลิกและภาพ avatar ให้เข้ากับผู้ใช้แต่ละคน โดยยังคุม guardrail เป็น wellness companion"
 
 ## 5:00 — Why Sati Matters (45 วินาที)
 
-"Sati ต่างจาก wellness app ทั่วไปตรงที่มี hardware ground truth และต่างจาก posture device เดี่ยว ๆ ตรงที่มี growth mechanic ให้คนอยากกลับมาใช้ต่อ ทีมสามารถเริ่มจาก B2B office wellness: 1 pod ต่อโต๊ะหรือ 1 pod ต่อกลุ่ม แล้วต่อยอดเป็น dashboard aggregate สำหรับ HR"
+"Sati ต่างจาก wellness app ทั่วไปตรงที่มี hardware ground truth และต่างจาก posture device เดี่ยว ๆ ตรงที่มี growth mechanic ให้คนอยากกลับมาใช้ต่อ ทีมสามารถเริ่มจาก B2B office wellness: 1 pod ต่อโต๊ะหรือ 1 pod ต่อกลุ่ม แล้วต่อยอดเป็น team-ready insight report ในเวอร์ชันหลัง hackathon"
 
 จบด้วย:
 
-"ใน hackathon นี้เราไม่ได้แค่ทำ dashboard สวย แต่ทำ loop ครบ: sensor -> insight -> action -> reward -> aggregate view"
+"ใน hackathon นี้เราไม่ได้แค่ทำ dashboard สวย แต่ทำ loop ครบ: sensor -> insight -> action -> reward"
 
 ## 5:45 — Q&A Buffer
 
 เก็บไว้ประมาณ 1 นาทีสำหรับคำถาม:
 
-- ถ้าถามเรื่อง privacy: ย้ำ aggregate only, no individual detail
+- ถ้าถามเรื่อง privacy: ย้ำว่า demo โฟกัสข้อมูลบนอุปกรณ์ของผู้ใช้คนเดียว และ future report จะเป็น aggregate only
 - ถ้าถามเรื่อง hardware: ชี้ UNO Q split MPU/MCU และ BLE/Serial bridge
 - ถ้าถามเรื่อง scale: เริ่ม B2B pilot ก่อน แล้วค่อยทำ kit
 

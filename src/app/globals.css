@@ -244,7 +244,7 @@ button,
 }
 
 .sati-root,
-.sati-root :where(.shell, .hero, .signals, .missions, .insight-card, .hr-card, .wallet-chip, .theme-toggle, .view-tabs, .state-pill, .growth, .sensor-status, .sig, .mission, .action-card, .view-chip, .guide-card, .shop-card, .shop-item, .fallback-btn, .ac-ill),
+.sati-root :where(.shell, .hero, .signals, .missions, .insight-card, .persona-card, .wallet-chip, .theme-toggle, .view-tabs, .state-pill, .growth, .sensor-status, .sig, .mission, .action-card, .view-chip, .guide-card, .shop-card, .shop-item, .fallback-btn, .ac-ill),
 .sati-root :where(.plant .pot-bg, .plant .pot-top-bg, .plant .stem-bg, .plant .leaf-bg, .plant .leaf-bg-light, .plant .head-bg) {
   transition:
     background-color 220ms ease,
@@ -503,7 +503,7 @@ h1 {
 .signals,
 .missions,
 .insight-card,
-.hr-card {
+.persona-card {
   border: 1px solid var(--shell-border);
   background: var(--panel);
   border-radius: 28px;
@@ -522,8 +522,7 @@ h1 {
 .hero-content,
 .compact-card-head,
 .compact-card-content,
-.insight-content,
-.hr-content {
+.insight-content {
   padding: 0;
 }
 
@@ -1110,7 +1109,7 @@ h1 {
 }
 
 .insights-view,
-.hr-view {
+.persona-view {
   display: grid;
   gap: clamp(14px, 1.8vw, 22px);
 }
@@ -1152,8 +1151,7 @@ h1 {
   gap: clamp(12px, 1.6vw, 18px);
 }
 
-.insight-card,
-.hr-card {
+.insight-card {
   min-height: 170px;
 }
 
@@ -1162,16 +1160,14 @@ h1 {
   background: linear-gradient(145deg, var(--surface-panel), color-mix(in srgb, var(--primary-soft) 74%, var(--surface)));
 }
 
-.insight-content,
-.hr-content {
+.insight-content {
   display: grid;
   align-content: start;
   gap: 10px;
   padding: clamp(17px, 2vw, 24px);
 }
 
-.insight-content span,
-.hr-content span {
+.insight-content span {
   color: var(--coin);
   font-size: 13px;
   font-weight: 840;
@@ -1184,42 +1180,262 @@ h1 {
   letter-spacing: 0;
 }
 
-.insight-content p,
-.hr-content p {
+.insight-content p {
   margin: 0;
   color: var(--soft-text);
   font-weight: 600;
   line-height: 1.45;
 }
 
-.hr-grid {
+.persona-grid {
   display: grid;
-  grid-template-columns: 1.1fr repeat(2, minmax(0, 0.8fr));
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
   gap: clamp(12px, 1.6vw, 18px);
 }
 
-.hr-card.hero-metric {
-  grid-row: span 2;
-  min-height: 358px;
-  background: linear-gradient(145deg, var(--surface-panel), color-mix(in srgb, var(--primary-soft) 68%, var(--surface)));
+.persona-card {
+  min-height: 520px;
 }
 
-.hr-content strong {
+.sg-title svg {
+  width: 20px;
+  height: 20px;
+}
+
+.persona-content {
+  padding: clamp(17px, 2vw, 24px);
+}
+
+.persona-form {
+  display: grid;
+  gap: 16px;
+}
+
+.persona-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.persona-field {
+  display: grid;
+  gap: 7px;
+}
+
+.persona-field span,
+.persona-fieldset legend {
   color: var(--state-text);
-  font-size: clamp(26px, 4vw, 58px);
-  line-height: 0.95;
+  font-size: 13px;
+  font-weight: 840;
+}
+
+.persona-field input,
+.persona-field textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 620;
+  padding: 12px 13px;
+  outline: none;
+}
+
+.persona-field textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.persona-field input::placeholder,
+.persona-field textarea::placeholder {
+  color: color-mix(in srgb, var(--soft-text) 72%, transparent);
+}
+
+.persona-field input:focus-visible,
+.persona-field textarea:focus-visible {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.persona-fieldset {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.persona-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.persona-choice {
+  min-height: 76px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-soft);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  padding: 11px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.persona-choice span {
+  font-size: 14px;
+  font-weight: 840;
+}
+
+.persona-choice small {
+  color: var(--soft-text);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.persona-choice:hover,
+.persona-choice.selected {
+  background: var(--primary-soft);
+  border-color: color-mix(in srgb, var(--primary) 64%, var(--line));
+}
+
+.persona-choice.selected span {
+  color: var(--state-text);
+}
+
+.avatar-result {
+  display: grid;
+  gap: 16px;
+}
+
+.avatar-showcase {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 16% 18%, var(--primary-soft), transparent 52%),
+    var(--surface-soft);
+  border: 1px solid var(--line);
+}
+
+.avatar-orb {
+  width: 96px;
+  height: 96px;
+  border-radius: 28px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, var(--surface-elev), color-mix(in srgb, var(--primary-soft) 82%, var(--surface)));
+  box-shadow: inset 0 0 0 1px var(--line), 0 18px 32px color-mix(in srgb, var(--primary) 18%, transparent);
+  font-size: 52px;
+}
+
+.avatar-kicker {
+  color: var(--coin);
+  font-size: 12px;
+  font-weight: 840;
+  text-transform: uppercase;
   letter-spacing: 0;
 }
 
-.metric-bar {
-  height: 16px;
-  padding: 3px;
-  margin-top: auto;
-  background: color-mix(in srgb, var(--text) 10%, transparent);
+.avatar-showcase h3 {
+  margin: 2px 0 5px;
+  color: var(--state-text);
+  font-size: clamp(26px, 3vw, 40px);
+  line-height: 1;
+  letter-spacing: 0;
 }
 
-.metric-bar [data-slot="progress-indicator"] {
-  background: linear-gradient(90deg, var(--state), var(--coin));
+.avatar-showcase p,
+.avatar-summary {
+  margin: 0;
+  color: var(--soft-text);
+  font-weight: 620;
+  line-height: 1.45;
+}
+
+.avatar-palette {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.avatar-palette svg {
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+}
+
+.persona-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.persona-tag {
+  background: var(--surface-soft);
+  color: var(--state-text);
+}
+
+.avatar-reasons {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.avatar-reasons li {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--soft-text);
+  font-size: 14px;
+  font-weight: 660;
+}
+
+.llm-brief {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid var(--line);
+}
+
+.brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brief-head strong {
+  color: var(--state-text);
+  font-size: 14px;
+}
+
+.llm-brief pre {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .guide-card {
@@ -1394,12 +1610,11 @@ h1 {
 
   .grid,
   .insight-grid,
-  .hr-grid {
+  .persona-grid {
     grid-template-columns: 1fr;
   }
 
-  .insight-card.primary,
-  .hr-card.hero-metric {
+  .insight-card.primary {
     grid-row: auto;
     min-height: 190px;
   }
@@ -1416,18 +1631,6 @@ h1 {
 
   .sati-root[data-state="action"] .action-card {
     display: grid;
-  }
-}
-
-@media (max-width: 1100px) and (min-width: 961px) {
-  .hr-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .hr-card.hero-metric {
-    grid-column: 1 / -1;
-    grid-row: auto;
-    min-height: 260px;
   }
 }
 
@@ -1457,6 +1660,22 @@ h1 {
     width: 100%;
     justify-content: space-between;
     gap: 8px;
+  }
+
+  .persona-fields,
+  .persona-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .avatar-showcase {
+    grid-template-columns: 1fr;
+    text-align: center;
+    justify-items: center;
+  }
+
+  .brief-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .wallet-chip {

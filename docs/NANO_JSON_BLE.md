@@ -22,7 +22,7 @@ Recommended: keep the BLE JSON compact. Long BLE values can be truncated by the 
 
 The UNO Q bridge also accepts a raw sensor JSON shape with `ax`, `ay`, `az`, `gx`, `gy`, and `gz`. When `backAngle` is missing, it estimates `backAngle` from accelerometer values and estimates `motion` from gyroscope magnitude.
 
-The bridge can find the Nano by BLE service UUID even if the advertised name is different, such as `HARU-NANO`.
+The bridge now prefers the team board name `Sati-Nano`. By default, UNO Q will not attach to another board that only matches the service UUID. If you intentionally want the old service-UUID fallback, set `SATI_BLE_ALLOW_SERVICE_FALLBACK=true`.
 
 UNO Q bridge output to browser:
 
@@ -57,6 +57,12 @@ The default BLE characteristic is already set to the Sati Nano sensor UUID, so t
 ssh arduino@LPK.local "cd ~/sati-coach/bridge && python3 sati_ws_bridge.py"
 ```
 
+To pin the bridge explicitly to the team Nano name:
+
+```powershell
+ssh arduino@LPK.local "cd ~/sati-coach/bridge && SATI_BLE_NAME=Sati-Nano SATI_BLE_ALLOW_SERVICE_FALLBACK=false python3 sati_ws_bridge.py"
+```
+
 Override the characteristic only if the Nano sketch changes:
 
 ```powershell
@@ -68,6 +74,7 @@ ssh arduino@LPK.local "SATI_BLE_CHAR=19B10001-E8F2-537E-4F6C-D104768A1214 python
 | Problem | What to check |
 |---|---|
 | `BLE device named 'Sati-Nano' not found` | Nano is powered, close to UNO Q, and advertising |
+| Bridge sees a Sati service but stays mock | The device name is not `Sati-Nano`; rename the Nano sketch or set `SATI_BLE_ALLOW_SERVICE_FALLBACK=true` intentionally |
 | JSON parse error | Nano sketch must write a compact JSON string to the sensor characteristic |
 | Bridge shows mock | BLE is not connected yet, or the characteristic UUID does not match |
 | Back angle stays near `0.0` | Nano was calibrated in the current orientation; tilt it to verify changes |

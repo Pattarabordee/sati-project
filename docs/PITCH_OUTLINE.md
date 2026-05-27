@@ -33,7 +33,8 @@ What Sati changes:
 - Movement cue confirms break behavior.
 - Web app turns signals into a 3-state coach: NORMAL -> WARNING -> ACTION.
 - Growth mechanic makes the plant grow from real sensor-confirmed behavior.
-- HR view shows aggregate team pattern only.
+- Second-Brain view summarizes observed behavior patterns.
+- Persona Avatar form creates an LLM-ready brief for avatar personalization.
 
 ## Slide 5: Architecture (30s)
 
@@ -54,13 +55,13 @@ Follow `docs/DEMO_SCRIPT.md`:
 3. Stretch completion
 4. Growth level-up
 5. Second-Brain insights
-6. HR aggregate dashboard
+6. Persona Avatar recommendation
 
 ## Slide 7: Market & Business (30s)
 
 - Beachhead: B2B office wellness pilot for tech companies and co-working spaces.
-- Revenue: hardware kit + monthly aggregate dashboard.
-- Expansion: decorative content, team challenges, privacy-preserving aggregate reports.
+- Revenue: hardware kit + optional wellness insight reports.
+- Expansion: decorative content, team challenges, privacy-preserving team-ready reports.
 - Market size: [ทีมต้องเติม source จากรายงาน corporate wellness / workplace wellness ที่น่าเชื่อถือ]
 
 Speaker note:
@@ -75,4 +76,4 @@ Speaker note:
 
 ## Closing Line
 
-"Sati is not just a reminder. It is a loop: sensor -> insight -> action -> reward -> team-level learning."
+"Sati is not just a reminder. It is a loop: sensor -> insight -> action -> reward -> daily awareness."

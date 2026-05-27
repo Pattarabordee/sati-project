@@ -2,6 +2,7 @@ param(
   [string]$Uno = "arduino@LPK.local",
   [string]$BleName = "Sati-Nano",
   [string]$BleChar = "19B10001-E8F2-537E-4F6C-D104768A1214",
+  [string]$BleAllowServiceFallback = "false",
   [string]$WebPort = "8080",
   [string]$WsPort = "8765"
 )
@@ -72,7 +73,7 @@ for i in 1 2 3 4 5; do
   sleep 1
 done
 cd $bridgeDir
-nohup env SATI_WS_PORT=$WsPort SATI_BLE_NAME=$BleName SATI_BLE_CHAR=$BleChar SATI_BLE_SCAN_TIMEOUT=3 python3 sati_ws_bridge.py > ~/sati-coach/bridge.log 2>&1 < /dev/null &
+nohup env SATI_WS_PORT=$WsPort SATI_BLE_NAME=$BleName SATI_BLE_CHAR=$BleChar SATI_BLE_ALLOW_SERVICE_FALLBACK=$BleAllowServiceFallback SATI_BLE_SCAN_TIMEOUT=3 python3 sati_ws_bridge.py > ~/sati-coach/bridge.log 2>&1 < /dev/null &
 cd ~/sati-coach
 nohup python3 -m http.server $WebPort --directory web --bind 0.0.0.0 > ~/sati-coach/web.log 2>&1 < /dev/null &
 sleep 2
