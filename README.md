@@ -127,6 +127,15 @@ python -m http.server 8080 --directory out --bind 0.0.0.0
 GitHub Actions sets `GITHUB_ACTIONS=true`, so production Pages builds automatically use `basePath` and `assetPrefix` for `/sati-project`.
 Live demo URL: https://pattarabordee.github.io/sati-project/
 
+### Wireless Deploy to UNO Q
+
+For quick LAN/OTA-style updates to the UNO Q Linux side, see [`docs/UNOQ_WIRELESS_DEPLOY.md`](docs/UNOQ_WIRELESS_DEPLOY.md).
+
+```powershell
+.\scripts\deploy_unoq.ps1
+.\scripts\unoq_status.ps1
+```
+
 ## Deploy to Arduino UNO Q via Arduino App Lab
 
 See also: [`arduino/README.md`](arduino/README.md) for sketch flashing, BLE UUIDs, wiring notes, and hardware verification.
