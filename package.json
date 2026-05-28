@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "app-lab:web": "powershell -ExecutionPolicy Bypass -File scripts/build_app_lab_web.ps1",
+    "app-lab:zip": "powershell -ExecutionPolicy Bypass -File scripts/package_app_lab_zip.ps1",
     "check": "next typegen && tsc --noEmit",
     "check-contrast": "node scripts/check_contrast.mjs"
   },
@@ -19,13 +21,15 @@
     "react": "latest",
     "react-dom": "latest",
     "sonner": "latest",
-    "tailwind-merge": "latest"
+    "tailwind-merge": "latest",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@types/three": "^0.184.1",
     "tailwindcss": "latest",
     "typescript": "latest"
   },

@@ -1,622 +1,847 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Leaf, Monitor, Moon, Palette, RotateCcw, ShoppingBag, Sparkles, Sun, UserRound, Wifi, WifiOff, X } from "lucide-react";
+import * as THREE from "three";
+import {
+  Activity,
+  BarChart3,
+  Bluetooth,
+  Box,
+  Cpu,
+  Database,
+  Download,
+  FileText,
+  Gauge,
+  Leaf,
+  Moon,
+  Play,
+  Radio,
+  RotateCcw,
+  Ruler,
+  Settings,
+  Signal,
+  SlidersHorizontal,
+  Square,
+  Sun,
+  Thermometer,
+  Vibrate,
+  Waves,
+  Wifi,
+  WifiOff,
+  Zap,
+} from "lucide-react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast, Toaster } from "sonner";
 
-import { PlantAvatar } from "@/components/plant-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const MEMORY_KEY = "sati-progress-v1";
+const HISTORY_LIMIT = 160;
+const ASSET_DIR = "sati-clip";
 
-type SatiState = "normal" | "warning" | "action";
-type MockMode = "normal" | "slouch" | "long" | "movement";
-type SensorSource = "mock" | "ws";
-type MissionId = "m1" | "m2" | "m3";
 type ThemePref = "light" | "dark" | "system";
-type WorkStyle = "deep-focus" | "meetings" | "creative" | "mixed";
-type MotivationStyle = "calm" | "challenge" | "story" | "collection";
-type CompanionStyle = "gentle" | "cheerful" | "focused" | "playful";
-type VisualTone = "forest" | "sky" | "sunset" | "night";
+type ConnectionSource = "mock" | "ws";
+type LedState = "green" | "yellow" | "red";
+type MovementLabel =
+  | "stable_lift"
+  | "bend_forward"
+  | "twist_carry"
+  | "rough_movement"
+  | "walk_carry"
+  | "idle"
+  | "other";
 
-type MissionsDone = Record<MissionId, boolean>;
+type Vector3 = {
+  gx: number;
+  gy: number;
+  gz: number;
+};
 
-type PersonaProfile = {
-  nickname: string;
-  role: string;
-  workStyle: WorkStyle;
-  motivation: MotivationStyle;
-  companion: CompanionStyle;
-  visualTone: VisualTone;
+type Accel3 = {
+  ax: number;
+  ay: number;
+  az: number;
+};
+
+type Mag3 = {
+  mx: number;
+  my: number;
+  mz: number;
+};
+
+type OrientationQuat = {
+  qw: number;
+  qx: number;
+  qy: number;
+  qz: number;
+};
+
+type OrientationRpy = {
+  roll: number;
+  pitch: number;
+  yaw: number;
+};
+
+type NanoPacket = {
+  n?: number;
+  t?: number;
+  p?: number;
+  lc?: number;
+  rgb?: {
+    r: number;
+    g: number;
+    b: number;
+  };
+};
+
+type BleStatus = {
+  targetName: string;
+  connected: boolean;
+  status: "scanning" | "connected" | "manual-disconnected" | "mock" | "error";
+  deviceName?: string;
+  address?: string;
+  characteristicUuid?: string;
+};
+
+type ClipFeatures = {
+  upperSignal: number;
+  thighSignal: number;
+  alignmentDelta: number;
+  stability: number;
+  vibrationCount: number;
+  ledState: LedState;
+};
+
+type SensorSample = {
+  timestampMs: number;
+  source: ConnectionSource;
+  backAngle: number;
+  screenDistance: number;
+  postureClass: string;
+  upperGyro: Vector3;
+  thighGyro: Vector3;
+  upperAccel?: Accel3;
+  upperMag?: Mag3;
+  orientationQuat?: OrientationQuat;
+  orientationRpy?: OrientationRpy;
+  nanoPacket?: NanoPacket;
+  vibration: number;
+  temperature: number;
+  distance: number;
+  motion: number;
+  features: ClipFeatures;
+  ble: BleStatus;
+  raw: Record<string, unknown>;
+};
+
+type RecordingRow = SensorSample & {
+  sessionId: string;
+  testName: string;
+  label: MovementLabel;
+  objectWeightKg: string;
+  participantId: string;
+  notes: string;
+  elapsedMs: number;
+};
+
+type TestMeta = {
+  sessionId: string;
+  testName: string;
+  label: MovementLabel;
+  objectWeightKg: string;
+  participantId: string;
   notes: string;
 };
 
-type AvatarRecommendation = {
-  name: string;
-  title: string;
-  emoji: string;
-  palette: string;
-  summary: string;
-  why: string[];
-  tags: string[];
-  prompt: string;
-};
-
-type ProgressMemory = {
-  gp?: number;
-  coins?: number;
-  stretchIdx?: number;
-  breaks?: number;
-  bestGoodSec?: number;
-  guideSeen?: boolean;
-  missionsDone?: Partial<MissionsDone>;
-  owned?: string[];
-  decorations?: string[];
+type ClipMemory = {
   theme?: ThemePref;
-  persona?: PersonaProfile;
-};
-
-type AppState = {
-  mode: MockMode;
-  state: SatiState;
-  sit: number;
-  backMs: number;
-  distMs: number;
-  recMs: number;
-  last: number;
-  modeStart: number;
-  ang: number;
-  dist: number;
-  postureClass: string;
-  movementMs: number;
-  movementRewarded: boolean;
-  distanceGoodMs: number;
-  distanceTotalMs: number;
-  gp: number;
-  coins: number;
-  stretchIdx: number;
-  breaks: number;
-  bestGoodSec: number;
-  goodRun: number;
-  goodAcc: number;
-  missionsDone: MissionsDone;
-  owned: string[];
-  decorations: string[];
-};
-
-type BehaviorRow = {
-  hour: number;
-  period: "ช่วงเช้า" | "ช่วงบ่าย" | "ช่วงเย็น";
-  state: SatiState;
-  angle: number;
-  distance: number;
 };
 
 declare global {
   interface Window {
-    __SATI_MEMORY_STORE__?: ProgressMemory;
+    __SATI_MEMORY_STORE__?: ClipMemory;
   }
 }
 
-const stages = [
-  { name: "🌰 Seed", at: 0, next: 100 },
-  { name: "🌱 Sprout", at: 100, next: 300 },
-  { name: "🪴 Seedling", at: 300, next: 700 },
-  { name: "🌿 Plant", at: 700, next: 1500 },
-  { name: "🌳 Flourishing", at: 1500, next: 1500 },
+const labelOptions: { value: MovementLabel; label: string; hint: string }[] = [
+  { value: "stable_lift", label: "Stable lift", hint: "Upper and thigh move together" },
+  { value: "bend_forward", label: "Bend forward", hint: "Upper body rotation rises first" },
+  { value: "twist_carry", label: "Twist carry", hint: "Side rotation while carrying" },
+  { value: "rough_movement", label: "Rough movement", hint: "Vibration or stability spike" },
+  { value: "walk_carry", label: "Walk carry", hint: "Moving with object in hand" },
+  { value: "idle", label: "Idle baseline", hint: "No active lifting task" },
+  { value: "other", label: "Other", hint: "Use notes for context" },
 ];
 
-const stretches = [
-  { title: "ยืดคอด้านข้าง", copy: "เอียงศีรษะไปด้านข้างค้างไว้ 15 วินาที สลับซ้าย-ขวา" },
-  { title: "หมุนไหล่", copy: "หมุนไหล่ช้า ๆ ไปหน้า-หลัง อย่างละ 8 ครั้ง" },
-  { title: "ยืดหลังส่วนบน", copy: "ประสานมือไปข้างหน้า ยืดแขนและหลังส่วนบน 15 วินาที" },
+function assetPath(file: string) {
+  return `${ASSET_DIR}/${file}`;
+}
+
+const sensorStack = [
+  {
+    key: "upper",
+    name: "Sati-Nano (Upper)",
+    detail: "Gyroscope + accelerometer",
+    channel: "BLE RSSI -58 dBm",
+    image: assetPath("sensor-nano.webp"),
+    icon: Bluetooth,
+  },
+  {
+    key: "thigh",
+    name: "Modulino Movement",
+    detail: "Thigh motion reference",
+    channel: "I2C · Address 0x6A",
+    image: assetPath("sensor-movement.webp"),
+    icon: Activity,
+  },
+  {
+    key: "vibration",
+    name: "Vibration Module",
+    detail: "Event counter",
+    channel: "Digital · Pin D2",
+    image: assetPath("sensor-vibration.webp"),
+    icon: Vibrate,
+  },
+  {
+    key: "thermo",
+    name: "Modulino Thermo",
+    detail: "Ambient temperature",
+    channel: "I2C · Address 0x48",
+    image: assetPath("sensor-thermo.webp"),
+    icon: Thermometer,
+  },
+  {
+    key: "distance",
+    name: "Modulino Distance",
+    detail: "Distance in cm",
+    channel: "I2C · Address 0x60",
+    image: assetPath("sensor-distance.webp"),
+    icon: Ruler,
+  },
 ];
 
-const guideSteps = [
-  {
-    emoji: "🌱",
-    title: "ยินดีต้อนรับสู่ Sati",
-    copy: "โค้ชท่านั่งที่ช่วยให้คุณทำงานอย่างมีสุขภาวะ มาดูกันว่ามันทำงานยังไงใน 30 วินาที",
-  },
-  {
-    emoji: "📡",
-    title: "เซนเซอร์จริง 3 ตัว",
-    copy: "Sati วัดมุมหลัง ระยะหน้าจอ และการเคลื่อนไหวจากเซนเซอร์จริง ไม่ใช่ค่าที่กดเอง ดูได้ที่แผง Live Signals",
-  },
-  {
-    emoji: "🌳",
-    title: "ต้นไม้โตจากพฤติกรรมจริง",
-    copy: "นั่งท่าดี พักตาม cue = ต้นไม้สะสมแต้มและเติบโต เพราะข้อมูลมาจาก sensor",
-  },
-  {
-    emoji: "🎯",
-    title: "ทำภารกิจ รับเหรียญ",
-    copy: "ภารกิจรายวันให้เหรียญ Sati เอาไปแต่งต้นไม้ในร้านค้าได้ ไม่ใช้เงินจริง",
-  },
-  {
-    emoji: "▶️",
-    title: "ลองเล่นเลย!",
-    copy: "กดปุ่มนั่งงอหลังด้านล่าง แล้วดูต้นไม้เปลี่ยนอารมณ์และระบบแนะนำให้พัก",
-  },
+const csvHeaders = [
+  "sessionId",
+  "testName",
+  "label",
+  "objectWeightKg",
+  "participantId",
+  "notes",
+  "timestampMs",
+  "elapsedMs",
+  "source",
+  "bleStatus",
+  "upper_gx",
+  "upper_gy",
+  "upper_gz",
+  "thigh_gx",
+  "thigh_gy",
+  "thigh_gz",
+  "vibration",
+  "temperature",
+  "distance",
+  "backAngle",
+  "screenDistance",
+  "postureClass",
+  "upperSignal",
+  "thighSignal",
+  "alignmentDelta",
+  "stability",
+  "vibrationCount",
+  "ledState",
+  "nano_n",
+  "nano_t",
+  "accel_ax",
+  "accel_ay",
+  "accel_az",
+  "gyro_gx",
+  "gyro_gy",
+  "gyro_gz",
+  "mag_mx",
+  "mag_my",
+  "mag_mz",
+  "quat_w",
+  "quat_x",
+  "quat_y",
+  "quat_z",
+  "roll",
+  "pitch",
+  "yaw",
+  "nano_p",
+  "nano_lc",
+  "rgb_r",
+  "rgb_g",
+  "rgb_b",
 ];
 
-const shopItems = [
-  { id: "pot1", emoji: "🪴", name: "กระถางเซรามิก", price: 50 },
-  { id: "pot2", emoji: "🏺", name: "กระถางลายเบญจรงค์", price: 120 },
-  { id: "flower", emoji: "🌸", name: "ดอกไม้สีชมพู", price: 100 },
-  { id: "sun", emoji: "☀️", name: "แสงอุ่น", price: 80 },
-  { id: "leafCharm", emoji: "🍃", name: "ใบไม้ประดับ", price: 150 },
-  { id: "lantern", emoji: "🏮", name: "โคมไฟไทย", price: 180 },
-  { id: "star", emoji: "⭐", name: "ดาวประดับ", price: 90 },
-  { id: "glow", emoji: "✨", name: "ต้นไม้เรืองแสง", price: 300 },
-];
-
-const personaDefaults: PersonaProfile = {
-  nickname: "",
-  role: "Desk worker",
-  workStyle: "mixed",
-  motivation: "calm",
-  companion: "gentle",
-  visualTone: "forest",
-  notes: "",
-};
-
-const personaChoices = {
-  workStyle: [
-    { value: "deep-focus", label: "Deep Focus", copy: "ชอบทำงานยาวแบบไม่ถูกรบกวน" },
-    { value: "meetings", label: "Meeting Flow", copy: "วันทำงานมีประชุมและสลับงานบ่อย" },
-    { value: "creative", label: "Creative Sprint", copy: "ชอบไอเดีย ภาพ และ mood ที่มีชีวิต" },
-    { value: "mixed", label: "Balanced Day", copy: "มีทั้งโฟกัส ประชุม และพักสั้น ๆ" },
-  ],
-  motivation: [
-    { value: "calm", label: "Calm Nudges", copy: "อยากได้ cue เบา ๆ ไม่เร่ง" },
-    { value: "challenge", label: "Quest Energy", copy: "ชอบเป้าหมายและคะแนนชัด" },
-    { value: "story", label: "Tiny Story", copy: "ชอบความรู้สึกเหมือนมีเรื่องเล่า" },
-    { value: "collection", label: "Collectibles", copy: "ชอบสะสมของแต่งและปลดล็อก" },
-  ],
-  companion: [
-    { value: "gentle", label: "Gentle", copy: "นุ่ม สุภาพ อยู่เป็นเพื่อน" },
-    { value: "cheerful", label: "Cheerful", copy: "สดใส ให้กำลังใจง่าย ๆ" },
-    { value: "focused", label: "Focused", copy: "สั้น ชัด ไม่ขัดจังหวะ" },
-    { value: "playful", label: "Playful", copy: "มีลูกเล่นและรีแอคชันสนุก" },
-  ],
-  visualTone: [
-    { value: "forest", label: "Sage Forest", copy: "เขียว sage และธรรมชาติ" },
-    { value: "sky", label: "Soft Sky", copy: "ฟ้าอ่อน โปร่ง เบา" },
-    { value: "sunset", label: "Warm Sunset", copy: "amber terracotta อุ่น ๆ" },
-    { value: "night", label: "Night Grove", copy: "โหมดค่ำ ลึกแต่สบายตา" },
-  ],
-} as const;
-
-const avatarPresets: Record<string, Omit<AvatarRecommendation, "why" | "tags" | "prompt">> = {
-  grove: {
-    name: "Mori Sprout",
-    title: "ผู้ช่วยสายสงบที่โตไปพร้อมคุณ",
-    emoji: "🌱",
-    palette: "sage green + cream + leaf glow",
-    summary: "เหมาะกับคนที่อยากให้ Sati เป็นพื้นที่พักสายตาและค่อย ๆ ชวนกลับมาอยู่กับจังหวะที่ดี",
-  },
-  lantern: {
-    name: "Hinode Lantern",
-    title: "แสงอุ่นสำหรับวันทำงานที่มีหลายจังหวะ",
-    emoji: "🏮",
-    palette: "warm amber + terracotta + cream",
-    summary: "เหมาะกับคนที่ชอบ feedback ที่เห็นชัด มีพลัง แต่ยังไม่แข็งหรือเร่งเกินไป",
-  },
-  sky: {
-    name: "Aoi Leaf",
-    title: "avatar โปร่งเบาสำหรับโฟกัสยาว",
-    emoji: "🍃",
-    palette: "soft sky + sage teal + white mist",
-    summary: "เหมาะกับคนที่ต้องการตัวช่วยที่พูดน้อย ชัดเจน และไม่ดึงความสนใจจากงานหลัก",
-  },
-  bloom: {
-    name: "Hana Bloom",
-    title: "avatar สายสะสมและปลดล็อกของตกแต่ง",
-    emoji: "🌸",
-    palette: "soft blossom + mint + warm gold",
-    summary: "เหมาะกับคนที่สนุกกับ progression, cosmetic reward และ mission รายวัน",
-  },
-  night: {
-    name: "Yoru Bonsai",
-    title: "เพื่อนร่วมงานโหมดค่ำที่นิ่งและอบอุ่น",
-    emoji: "🌙",
-    palette: "night grove + muted teal + warm moonlight",
-    summary: "เหมาะกับคนที่ใช้ Sati ช่วงเย็นหรือชอบ UI นุ่มลึก ลดความสว่างบนจอ",
-  },
-};
-
-const missionCopy: Record<MissionId, { name: string; reward: number }> = {
-  m1: { name: "พักครบ 3 ครั้ง", reward: 30 },
-  m2: { name: "นั่งท่าดีครบ 1 Pomodoro", reward: 20 },
-  m3: { name: "รักษาระยะหน้าจอดีทั้งชั่วโมง", reward: 20 },
-};
-
-const thresholds = {
-  warnDeg: 20,
-  badDeg: 40,
-  closeCm: 45,
-  warnMs: 3000,
-  closeWarnMs: 800,
-  actMs: 7000,
-  closeActMs: 5200,
-  recMs: 1300,
-  longSit: 80,
-  moveBreakMs: 5000,
-  goodGpMs: 1500000,
-  demoGpMs: 60000,
-};
-
-const hackathonDemoMode = process.env.NEXT_PUBLIC_SATI_DEMO_MODE !== "false";
-const goodPostureMilestoneMs = hackathonDemoMode ? thresholds.demoGpMs : thresholds.goodGpMs;
 const envSensorAutoConnect = process.env.NEXT_PUBLIC_SATI_WS_AUTOCONNECT === "true";
 
-const stateCopy: Record<SatiState, { title: string; cue: string }> = {
-  normal: { title: "NORMAL — ต้นไม้ของคุณแข็งแรงดี", cue: "wellness cue / ปกติ" },
-  warning: { title: "WARNING — ปรับท่านั่งหน่อยนะ", cue: "wellness cue / เตือน" },
-  action: { title: "ACTION — ได้เวลาพักและยืดเส้น", cue: "wellness cue / แนะนำ" },
-};
-
-function avatarKeyForPersona(persona: PersonaProfile) {
-  if (persona.visualTone === "night") return "night";
-  if (persona.motivation === "collection" || persona.companion === "playful") return "bloom";
-  if (persona.visualTone === "sunset" || persona.motivation === "challenge") return "lantern";
-  if (persona.workStyle === "deep-focus" || persona.companion === "focused") return "sky";
-  return "grove";
-}
-
-function labelForChoice<T extends string>(choices: readonly { value: T; label: string }[], value: T) {
-  return choices.find((choice) => choice.value === value)?.label ?? value;
-}
-
-function buildPersonaBrief(persona: PersonaProfile) {
-  return {
-    nickname: persona.nickname || "Sati user",
-    role: persona.role || "Desk worker",
-    workStyle: labelForChoice(personaChoices.workStyle, persona.workStyle),
-    motivation: labelForChoice(personaChoices.motivation, persona.motivation),
-    companionStyle: labelForChoice(personaChoices.companion, persona.companion),
-    visualTone: labelForChoice(personaChoices.visualTone, persona.visualTone),
-    notes: persona.notes || "No extra notes",
-    guardrails: [
-      "wellness companion only",
-      "use sensor observations, not claims",
-      "avoid medical wording",
-      "recommend avatar style, visual mood, and interaction tone",
-    ],
-  };
-}
-
-function recommendAvatar(persona: PersonaProfile): AvatarRecommendation {
-  const preset = avatarPresets[avatarKeyForPersona(persona)];
-  const workStyle = labelForChoice(personaChoices.workStyle, persona.workStyle);
-  const motivation = labelForChoice(personaChoices.motivation, persona.motivation);
-  const companion = labelForChoice(personaChoices.companion, persona.companion);
-  const visualTone = labelForChoice(personaChoices.visualTone, persona.visualTone);
-  const brief = buildPersonaBrief(persona);
-  const why = [
-    `Work rhythm: ${workStyle}`,
-    `Reward style: ${motivation}`,
-    `Companion tone: ${companion}`,
-    `Visual mood: ${visualTone}`,
-  ];
-  const tags = [workStyle, motivation, companion, visualTone];
-  const prompt = [
-    "You are an avatar designer for Sati, a sensor-driven wellness companion.",
-    "Understand this user persona and recommend one avatar concept for the app.",
-    "Keep the recommendation warm, game-like, and suitable for a calm desk-work experience.",
-    "Do not use medical claims or medical wording.",
-    "",
-    JSON.stringify(brief, null, 2),
-    "",
-    "Return: avatar name, visual style, personality tone, color palette, UI reactions for normal/warning/action, and one short reason.",
-  ].join("\n");
-
-  return {
-    ...preset,
-    why,
-    tags,
-    prompt,
-  };
-}
-
-function nowMs() {
-  return typeof performance !== "undefined" ? performance.now() : Date.now();
-}
-
-function freshMissionsDone(): MissionsDone {
-  return { m1: false, m2: false, m3: false };
-}
-
-function readMemory(): ProgressMemory | null {
-  if (typeof window === "undefined") return null;
+function readMemory(): ClipMemory | undefined {
+  if (typeof window === "undefined") return undefined;
+  if (window.__SATI_MEMORY_STORE__) return window.__SATI_MEMORY_STORE__;
   try {
-    const box = window.name ? JSON.parse(window.name) : {};
-    return box[MEMORY_KEY] || null;
+    const parsed = JSON.parse(window.name || "{}");
+    const memory = parsed?.[MEMORY_KEY] as ClipMemory | undefined;
+    window.__SATI_MEMORY_STORE__ = memory;
+    return memory;
   } catch {
-    return window.__SATI_MEMORY_STORE__ || null;
+    return undefined;
   }
 }
 
-function writeMemory(data: ProgressMemory) {
+function writeMemory(memory: ClipMemory) {
   if (typeof window === "undefined") return;
+  window.__SATI_MEMORY_STORE__ = memory;
   try {
-    const box = window.name ? JSON.parse(window.name) : {};
-    box[MEMORY_KEY] = data;
-    window.name = JSON.stringify(box);
+    const parsed = JSON.parse(window.name || "{}");
+    parsed[MEMORY_KEY] = memory;
+    window.name = JSON.stringify(parsed);
   } catch {
-    try {
-      window.name = JSON.stringify({ [MEMORY_KEY]: data });
-    } catch {
-      window.__SATI_MEMORY_STORE__ = data;
-    }
+    window.name = JSON.stringify({ [MEMORY_KEY]: memory });
   }
-}
-
-function createAppState(saved: ProgressMemory | null = null): AppState {
-  const t = nowMs();
-  return {
-    mode: "normal",
-    state: "normal",
-    sit: 0,
-    backMs: 0,
-    distMs: 0,
-    recMs: 0,
-    last: t,
-    modeStart: t,
-    ang: 15,
-    dist: 60,
-    postureClass: "normal",
-    movementMs: 0,
-    movementRewarded: false,
-    distanceGoodMs: 0,
-    distanceTotalMs: 0,
-    gp: saved?.gp ?? 120,
-    coins: saved?.coins ?? 80,
-    stretchIdx: saved?.stretchIdx ?? 0,
-    breaks: saved?.breaks ?? 0,
-    bestGoodSec: saved?.bestGoodSec ?? 0,
-    goodRun: 0,
-    goodAcc: 0,
-    missionsDone: { ...freshMissionsDone(), ...(saved?.missionsDone || {}) },
-    owned: saved?.owned ?? [],
-    decorations: saved?.decorations ?? [],
-  };
-}
-
-function fmt(seconds: number) {
-  const minute = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const second = String(Math.floor(seconds % 60)).padStart(2, "0");
-  return `${minute}:${second}`;
-}
-
-function stageIndexForGp(gp: number) {
-  let stage = 0;
-  for (let i = 0; i < stages.length; i += 1) {
-    if (gp >= stages[i].at) stage = i;
-  }
-  return stage;
-}
-
-function normalizePostureClass(value: unknown) {
-  return String(value || "normal").trim().toLowerCase().replace(/_/g, "-");
 }
 
 function shouldAutoConnectSensor() {
   if (typeof window === "undefined") return false;
-  return envSensorAutoConnect || new URLSearchParams(window.location.search).get("live") === "1";
+  const params = new URLSearchParams(window.location.search);
+  return params.get("live") === "1" || envSensorAutoConnect;
 }
 
-function periodName(hour: number): BehaviorRow["period"] {
-  if (hour >= 12 && hour < 17) return "ช่วงบ่าย";
-  if (hour >= 17) return "ช่วงเย็น";
-  return "ช่วงเช้า";
+function nowMs() {
+  return Date.now();
 }
 
-function completeMission(next: AppState, id: MissionId, events: string[]) {
-  if (next.missionsDone[id]) return;
-  next.missionsDone = { ...next.missionsDone, [id]: true };
-  next.coins += missionCopy[id].reward;
-  events.push(`ภารกิจสำเร็จ: ${missionCopy[id].name} · +${missionCopy[id].reward} coins`);
+function makeSessionId() {
+  return `clip-${new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`;
 }
 
-function checkMissions(next: AppState, events: string[]) {
-  if (next.breaks >= 3) completeMission(next, "m1", events);
-  if (next.bestGoodSec * 1000 >= goodPostureMilestoneMs) completeMission(next, "m2", events);
-  const distanceGoodRatio = next.distanceTotalMs ? next.distanceGoodMs / next.distanceTotalMs : 0;
-  if (distanceGoodRatio >= 0.8) completeMission(next, "m3", events);
+function numberFrom(value: unknown, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function mockSensors(next: AppState, dt: number, now: number) {
-  const sec = (now - next.modeStart) / 1000;
-  const wave = Math.sin(now / 900);
-  if (next.mode === "normal") {
-    next.ang = 15 + wave * 1.4;
-    next.dist = 60 + Math.sin(now / 1100) * 2;
-    next.postureClass = "normal";
-    next.sit += dt / 1000;
-  } else if (next.mode === "slouch") {
-    next.ang = (sec > 8.4 ? 45 : 32) + wave * 1.2;
-    next.dist = 60 + Math.sin(now / 1200) * 1.5;
-    next.postureClass = "hunched";
-    next.sit += dt / 1000;
-  } else {
-    next.ang = 15 + wave;
-    next.dist = 61 + Math.sin(now / 1000) * 1.5;
-    next.postureClass = next.mode === "movement" ? "movement" : "normal";
-    next.sit += next.mode === "movement" ? dt / 1000 : (dt / 1000) * 7;
-  }
+function objectFrom(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
 }
 
-function runStateMachine(next: AppState, dt: number, events: string[]) {
-  const movementCue = next.postureClass === "movement";
-  if (movementCue) {
-    next.movementMs += dt;
-  } else {
-    next.movementMs = 0;
-    next.movementRewarded = false;
-  }
-
-  if (next.movementMs >= thresholds.moveBreakMs) {
-    if (!next.movementRewarded) {
-      next.gp += 15;
-      next.breaks += 1;
-      next.movementRewarded = true;
-      events.push("ลุกพักสำเร็จ · +15 GP 🌿");
-    }
-    next.state = "normal";
-    next.backMs = 0;
-    next.distMs = 0;
-    next.sit = 0;
-    next.recMs = thresholds.recMs;
-    next.goodRun = 0;
-    next.goodAcc = 0;
-    return;
-  }
-
-  const backCue = next.ang > thresholds.warnDeg;
-  const distCue = next.dist < thresholds.closeCm;
-  const longSit = next.sit >= thresholds.longSit;
-  next.backMs = backCue ? next.backMs + dt : 0;
-  next.distMs = distCue ? next.distMs + dt : 0;
-  const anyCue = backCue || distCue || longSit || movementCue;
-  next.recMs = anyCue ? 0 : next.recMs + dt;
-
-  if (!anyCue) {
-    next.goodRun += dt / 1000;
-    next.bestGoodSec = Math.max(next.bestGoodSec, next.goodRun);
-    next.goodAcc += dt;
-    if (next.goodAcc >= goodPostureMilestoneMs) {
-      next.gp += 20;
-      next.goodAcc = 0;
-      events.push(`นั่งท่าดีครบ ${hackathonDemoMode ? "1 นาที" : "25 นาที"} · +20 GP 🌱`);
-    }
-  } else {
-    next.goodRun = 0;
-    next.goodAcc = 0;
-  }
-
-  const warnReady = next.backMs >= thresholds.warnMs || next.distMs >= thresholds.closeWarnMs;
-  const actReady = next.backMs >= thresholds.actMs || next.distMs >= thresholds.closeActMs || longSit;
-  if (next.state === "action") {
-    return;
-  }
-  if (actReady) next.state = "action";
-  else if (warnReady) next.state = "warning";
-  else if (next.recMs >= thresholds.recMs) next.state = "normal";
+function numericArray(value: unknown, length: number): number[] | undefined {
+  if (!Array.isArray(value) || value.length < length) return undefined;
+  const values = value.slice(0, length).map((item) => Number(item));
+  return values.every(Number.isFinite) ? values : undefined;
 }
 
-function angStat(angle: number) {
-  if (angle > thresholds.badDeg) return "Deep bend";
-  if (angle > thresholds.warnDeg) return "Adjust";
-  return "Good";
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
-function SatiMark() {
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 6c6 5 9 10 9 16a9 9 0 0 1-18 0c0-6 3-11 9-16Z" fill="currentColor" opacity=".9" />
-      <path d="M24 42V22" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-    </svg>
+function vectorFrom(value: unknown, fallback: Vector3 = { gx: 0, gy: 0, gz: 0 }): Vector3 {
+  const values = numericArray(value, 3);
+  if (values) return { gx: values[0], gy: values[1], gz: values[2] };
+  if (!value || typeof value !== "object") return fallback;
+  const row = value as Record<string, unknown>;
+  return {
+    gx: numberFrom(row.gx, fallback.gx),
+    gy: numberFrom(row.gy, fallback.gy),
+    gz: numberFrom(row.gz, fallback.gz),
+  };
+}
+
+function accelFrom(value: unknown): Accel3 | undefined {
+  const values = numericArray(value, 3);
+  if (values) return { ax: values[0], ay: values[1], az: values[2] };
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as Record<string, unknown>;
+  if (!("ax" in row) && !("ay" in row) && !("az" in row)) return undefined;
+  return {
+    ax: numberFrom(row.ax),
+    ay: numberFrom(row.ay),
+    az: numberFrom(row.az, 1),
+  };
+}
+
+function magFrom(value: unknown): Mag3 | undefined {
+  const values = numericArray(value, 3);
+  if (values) return { mx: values[0], my: values[1], mz: values[2] };
+  const row = objectFrom(value);
+  if (!row || (!("mx" in row) && !("my" in row) && !("mz" in row))) return undefined;
+  return {
+    mx: numberFrom(row.mx),
+    my: numberFrom(row.my),
+    mz: numberFrom(row.mz),
+  };
+}
+
+function quatFrom(value: unknown): OrientationQuat | undefined {
+  const values = numericArray(value, 4);
+  if (values) return { qw: values[0], qx: values[1], qy: values[2], qz: values[3] };
+  const row = objectFrom(value);
+  if (!row || (!("qw" in row) && !("qx" in row) && !("qy" in row) && !("qz" in row))) return undefined;
+  return {
+    qw: numberFrom(row.qw, 1),
+    qx: numberFrom(row.qx),
+    qy: numberFrom(row.qy),
+    qz: numberFrom(row.qz),
+  };
+}
+
+function rpyFrom(value: unknown): OrientationRpy | undefined {
+  const values = numericArray(value, 3);
+  if (values) return { roll: values[0], pitch: values[1], yaw: values[2] };
+  const row = objectFrom(value);
+  if (!row || (!("roll" in row) && !("pitch" in row) && !("yaw" in row))) return undefined;
+  return {
+    roll: numberFrom(row.roll),
+    pitch: numberFrom(row.pitch),
+    yaw: numberFrom(row.yaw),
+  };
+}
+
+function looksLikeNanoRaw(row: Record<string, unknown>) {
+  return "a" in row || "gy" in row || "m" in row || "q" in row || "rpy" in row || "rgb" in row || "lc" in row;
+}
+
+function nanoPacketFrom(row: Record<string, unknown> | undefined): NanoPacket | undefined {
+  if (!row) return undefined;
+  const rgbValues = numericArray(row.rgb, 3);
+  return {
+    n: "n" in row ? numberFrom(row.n) : undefined,
+    t: "t" in row ? numberFrom(row.t) : undefined,
+    p: "p" in row ? numberFrom(row.p) : undefined,
+    lc: "lc" in row ? numberFrom(row.lc) : undefined,
+    rgb: rgbValues ? { r: rgbValues[0], g: rgbValues[1], b: rgbValues[2] } : undefined,
+  };
+}
+
+function magnitude(vector: Vector3) {
+  return Math.sqrt(vector.gx * vector.gx + vector.gy * vector.gy + vector.gz * vector.gz);
+}
+
+function round(value: number, digits = 2) {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function inferLedState(alignmentDelta: number, stability: number): LedState {
+  if (alignmentDelta < 3 && stability < 8) return "green";
+  if (alignmentDelta < 7 && stability < 16) return "yellow";
+  return "red";
+}
+
+function normalizeLed(value: unknown, alignmentDelta: number, stability: number): LedState {
+  if (value === "green" || value === "yellow" || value === "red") return value;
+  return inferLedState(alignmentDelta, stability);
+}
+
+function normalizeBle(value: unknown, source: ConnectionSource): BleStatus {
+  const fallback: BleStatus = {
+    targetName: "Sati-Nano",
+    connected: source === "ws",
+    status: source === "ws" ? "connected" : "mock",
+  };
+  if (!value || typeof value !== "object") return fallback;
+  const row = value as Record<string, unknown>;
+  const status = String(row.status || fallback.status);
+  return {
+    targetName: String(row.targetName || "Sati-Nano"),
+    connected: Boolean(row.connected),
+    status: status === "scanning" || status === "connected" || status === "manual-disconnected" || status === "error" || status === "mock" ? status : fallback.status,
+    deviceName: typeof row.deviceName === "string" ? row.deviceName : undefined,
+    address: typeof row.address === "string" ? row.address : undefined,
+    characteristicUuid: typeof row.characteristicUuid === "string" ? row.characteristicUuid : undefined,
+  };
+}
+
+function normalizePayload(data: Record<string, unknown>, source: ConnectionSource): SensorSample {
+  const directNanoRaw = objectFrom(data.nanoRaw) ?? objectFrom(data.imu);
+  const nanoRaw = directNanoRaw ?? (looksLikeNanoRaw(data) ? data : undefined);
+  const orientationRpy = rpyFrom(data.orientationRpy ?? data.orientation_rpy ?? data.rpy ?? nanoRaw?.rpy);
+  const upperGyro = vectorFrom(data.upperGyro ?? data.upper_gyro ?? nanoRaw?.gy ?? nanoRaw);
+  const thighGyro = vectorFrom(data.thighGyro ?? data.thigh_gyro ?? data.lower_gyro);
+  const upperAccel = accelFrom(data.upperAccel ?? data.upper_accel ?? nanoRaw?.a ?? nanoRaw);
+  const upperMag = magFrom(data.upperMag ?? data.upper_mag ?? data.mag ?? nanoRaw?.m);
+  const orientationQuat = quatFrom(data.orientationQuat ?? data.orientation_quat ?? data.q ?? nanoRaw?.q);
+  const nanoPacket = nanoPacketFrom(nanoRaw);
+  const vibration = numberFrom(data.vibration ?? data.vibration_value);
+  const temperature = numberFrom(data.temperature ?? data.temp, 30);
+  const distance = numberFrom(data.distance, numberFrom(data.screenDistance, 60));
+  const rawBackAngle = orientationRpy ? Math.max(Math.abs(orientationRpy.roll), Math.abs(orientationRpy.pitch)) : 15;
+  const backAngle = numberFrom(data.backAngle, rawBackAngle);
+  const screenDistance = numberFrom(data.screenDistance, distance);
+  const motion = numberFrom(data.motion, magnitude(upperGyro));
+  const featuresInput = (data.features && typeof data.features === "object" ? data.features : {}) as Record<string, unknown>;
+  const upperSignal = numberFrom(featuresInput.upperSignal ?? featuresInput.upper_signal ?? data.upper_signal, motion || magnitude(upperGyro));
+  const thighSignal = numberFrom(featuresInput.thighSignal ?? featuresInput.thigh_signal ?? data.thigh_signal, magnitude(thighGyro));
+  const vibrationCount = numberFrom(featuresInput.vibrationCount ?? featuresInput.vibration_count ?? data.vibration_count, vibration ? 1 : 0);
+  const alignmentDelta = numberFrom(featuresInput.alignmentDelta ?? featuresInput.alignment_delta ?? data.alignment_delta, Math.abs(upperSignal - thighSignal));
+  const stability = numberFrom(featuresInput.stability, upperSignal + thighSignal + vibrationCount);
+  const ledState = normalizeLed(featuresInput.ledState ?? featuresInput.led_state ?? data.led_state, alignmentDelta, stability);
+
+  return {
+    timestampMs: numberFrom(data.timestampMs, nowMs()),
+    source,
+    backAngle,
+    screenDistance,
+    postureClass: String(data.postureClass || (ledState === "red" ? "hunched" : "normal")),
+    upperGyro,
+    thighGyro,
+    upperAccel,
+    upperMag,
+    orientationQuat,
+    orientationRpy,
+    nanoPacket,
+    vibration,
+    temperature,
+    distance,
+    motion,
+    features: {
+      upperSignal: round(upperSignal),
+      thighSignal: round(thighSignal),
+      alignmentDelta: round(alignmentDelta),
+      stability: round(stability),
+      vibrationCount: Math.round(vibrationCount),
+      ledState,
+    },
+    ble: normalizeBle(data.ble, source),
+    raw: data,
+  };
+}
+
+function createMockPayload(index: number): SensorSample {
+  const t = nowMs() / 1000;
+  const liftPhase = Math.sin(t * 0.8);
+  const twistPhase = Math.sin(t * 1.4 + 0.7);
+  const roughPulse = index % 29 === 0 ? 1 : 0;
+  const upperGyro = {
+    gx: round(2.3 + liftPhase * 2.8 + roughPulse * 3.2),
+    gy: round(1.1 + twistPhase * 2.1),
+    gz: round(0.7 + Math.cos(t * 0.9) * 1.4),
+  };
+  const thighGyro = {
+    gx: round(1.5 + Math.sin(t * 0.85 + 0.4) * 1.2),
+    gy: round(0.7 + Math.cos(t * 0.75) * 0.9),
+    gz: round(0.5 + Math.sin(t * 1.1) * 0.7),
+  };
+  const upperSignal = magnitude(upperGyro);
+  const thighSignal = magnitude(thighGyro);
+  const vibration = roughPulse || (Math.random() > 0.94 ? 1 : 0);
+  const vibrationCount = vibration ? 2 : 0;
+  const alignmentDelta = Math.abs(upperSignal - thighSignal);
+  const stability = upperSignal + thighSignal + vibrationCount;
+  const ledState = inferLedState(alignmentDelta, stability);
+  return normalizePayload(
+    {
+      backAngle: round(12 + Math.abs(liftPhase) * 18),
+      screenDistance: round(58 + Math.sin(t * 0.35) * 4),
+      postureClass: ledState === "red" ? "hunched" : ledState === "yellow" ? "movement" : "normal",
+      upperGyro,
+      thighGyro,
+      vibration,
+      temperature: round(30 + Math.sin(t * 0.15) * 2.2, 1),
+      distance: round(58 + Math.sin(t * 0.35) * 4, 1),
+      motion: round(upperSignal),
+      features: {
+        upperSignal,
+        thighSignal,
+        alignmentDelta,
+        stability,
+        vibrationCount,
+        ledState,
+      },
+      ble: {
+        targetName: "Sati-Nano",
+        connected: false,
+        status: "mock",
+        deviceName: "mock sensor stream",
+      },
+      timestampMs: nowMs(),
+    },
+    "mock",
   );
+}
+
+function createInitialPayload(): SensorSample {
+  return normalizePayload(
+    {
+      backAngle: 14,
+      screenDistance: 60,
+      postureClass: "normal",
+      upperGyro: { gx: 0.8, gy: 0.2, gz: 0.4 },
+      thighGyro: { gx: 0.4, gy: 0.1, gz: 0.2 },
+      vibration: 0,
+      temperature: 30,
+      distance: 60,
+      motion: 0.92,
+      features: {
+        upperSignal: 0.92,
+        thighSignal: 0.46,
+        alignmentDelta: 0.46,
+        stability: 1.38,
+        vibrationCount: 0,
+        ledState: "green",
+      },
+      ble: {
+        targetName: "Sati-Nano",
+        connected: false,
+        status: "mock",
+        deviceName: "waiting for sensor stream",
+      },
+      timestampMs: 0,
+    },
+    "mock",
+  );
+}
+
+function createRecordingRow(sample: SensorSample, meta: TestMeta, startedAt: number): RecordingRow {
+  return {
+    ...sample,
+    sessionId: meta.sessionId,
+    testName: meta.testName,
+    label: meta.label,
+    objectWeightKg: meta.objectWeightKg,
+    participantId: meta.participantId,
+    notes: meta.notes,
+    elapsedMs: Math.max(0, sample.timestampMs - startedAt),
+  };
+}
+
+function escapeCsv(value: unknown) {
+  const text = String(value ?? "");
+  if (/[",\n\r]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
+  return text;
+}
+
+function rowsToCsv(rows: RecordingRow[]) {
+  const body = rows.map((row) => {
+    const values = [
+      row.sessionId,
+      row.testName,
+      row.label,
+      row.objectWeightKg,
+      row.participantId,
+      row.notes,
+      row.timestampMs,
+      row.elapsedMs,
+      row.source,
+      row.ble.status,
+      row.upperGyro.gx,
+      row.upperGyro.gy,
+      row.upperGyro.gz,
+      row.thighGyro.gx,
+      row.thighGyro.gy,
+      row.thighGyro.gz,
+      row.vibration,
+      row.temperature,
+      row.distance,
+      row.backAngle,
+      row.screenDistance,
+      row.postureClass,
+      row.features.upperSignal,
+      row.features.thighSignal,
+      row.features.alignmentDelta,
+      row.features.stability,
+      row.features.vibrationCount,
+      row.features.ledState,
+      row.nanoPacket?.n,
+      row.nanoPacket?.t,
+      row.upperAccel?.ax,
+      row.upperAccel?.ay,
+      row.upperAccel?.az,
+      row.upperGyro.gx,
+      row.upperGyro.gy,
+      row.upperGyro.gz,
+      row.upperMag?.mx,
+      row.upperMag?.my,
+      row.upperMag?.mz,
+      row.orientationQuat?.qw,
+      row.orientationQuat?.qx,
+      row.orientationQuat?.qy,
+      row.orientationQuat?.qz,
+      row.orientationRpy?.roll,
+      row.orientationRpy?.pitch,
+      row.orientationRpy?.yaw,
+      row.nanoPacket?.p,
+      row.nanoPacket?.lc,
+      row.nanoPacket?.rgb?.r,
+      row.nanoPacket?.rgb?.g,
+      row.nanoPacket?.rgb?.b,
+    ];
+    return values.map(escapeCsv).join(",");
+  });
+  return [csvHeaders.join(","), ...body].join("\n");
+}
+
+function downloadCsv(rows: RecordingRow[], meta: TestMeta) {
+  const csv = rowsToCsv(rows);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const safeName = (meta.testName || meta.sessionId).replace(/[^a-z0-9ก-๙_-]+/gi, "-").replace(/-+/g, "-");
+  link.href = url;
+  link.download = `${safeName}-${meta.sessionId}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function fmt(value: number, digits = 1) {
+  if (!Number.isFinite(value)) return "-";
+  return value.toFixed(digits);
+}
+
+function fmtMaybe(value: number | undefined, digits = 1) {
+  return typeof value === "number" ? fmt(value, digits) : "-";
+}
+
+function formatElapsed(ms: number) {
+  const sec = Math.floor(ms / 1000);
+  const minutes = Math.floor(sec / 60);
+  const seconds = sec % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function ledCopy(led: LedState) {
+  if (led === "green") return "Stable";
+  if (led === "yellow") return "Watch";
+  return "Reset";
+}
+
+function bleStatusCopy(status: BleStatus["status"]) {
+  if (status === "connected") return "BLE connected";
+  if (status === "manual-disconnected") return "BLE paused";
+  if (status === "error") return "BLE error";
+  if (status === "mock") return "BLE mock";
+  return "BLE scanning";
 }
 
 export function SatiApp() {
   const [hydrated, setHydrated] = useState(false);
-  const [app, setApp] = useState<AppState>(() => createAppState());
-  const [view, setView] = useState("coach");
-  const [guideOpen, setGuideOpen] = useState(true);
-  const [guideSeen, setGuideSeen] = useState(false);
-  const [guideIndex, setGuideIndex] = useState(0);
-  const [shopOpen, setShopOpen] = useState(false);
-  const [behaviorLog, setBehaviorLog] = useState<BehaviorRow[]>([]);
-  const [sensor, setSensor] = useState<{ source: SensorSource; status: string }>({
+  const [view, setView] = useState("sensors");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themePref, setThemePref] = useState<ThemePref>("system");
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
+  const [sensor, setSensor] = useState<{ source: ConnectionSource; status: string }>({
     source: "mock",
     status: "connecting",
   });
-  const [gpPulse, setGpPulse] = useState(false);
-  const [coinPulse, setCoinPulse] = useState(false);
-  const [levelPulse, setLevelPulse] = useState(false);
-  const [themePref, setThemePref] = useState<ThemePref>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-  const [persona, setPersona] = useState<PersonaProfile>(personaDefaults);
+  const [currentSample, setCurrentSample] = useState<SensorSample>(() => createInitialPayload());
+  const [history, setHistory] = useState<SensorSample[]>(() => [createInitialPayload()]);
+  const [recordedRows, setRecordedRows] = useState<RecordingRow[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [startedAt, setStartedAt] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [meta, setMeta] = useState<TestMeta>(() => ({
+    sessionId: "clip-session",
+    testName: "Lifting Test Session",
+    label: "stable_lift",
+    objectWeightKg: "",
+    participantId: "P-001",
+    notes: "",
+  }));
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectRef = useRef<number | null>(null);
   const connectRef = useRef<() => void>(() => {});
   const lastMessageRef = useRef(0);
-  const logAccRef = useRef(0);
-  const appRef = useRef(app);
-  const previousWalletRef = useRef({ gp: app.gp, coins: app.coins });
-  const previousStageRef = useRef(stageIndexForGp(app.gp));
+  const mockIndexRef = useRef(0);
+  const isRecordingRef = useRef(false);
+  const startedAtRef = useRef(0);
+  const metaRef = useRef(meta);
 
-  const stageIndex = stageIndexForGp(app.gp);
-  const currentStage = stages[stageIndex];
-  const stageSpan = currentStage.next - currentStage.at;
-  const stageProgress =
-    stageIndex === stages.length - 1
-      ? 100
-      : Math.round(((app.gp - currentStage.at) / Math.max(stageSpan, 1)) * 100);
   const live = sensor.source === "ws";
-  const activeStretch = stretches[app.stretchIdx % stretches.length];
-  const selectedGuide = guideSteps[guideIndex];
-  const avatarRecommendation = useMemo(() => recommendAvatar(persona), [persona]);
-  const personaBrief = useMemo(() => buildPersonaBrief(persona), [persona]);
+  const latestJson = useMemo(() => JSON.stringify(currentSample.raw, null, 2), [currentSample.raw]);
+  const alignmentScore = Math.max(0, Math.min(100, Math.round(100 - currentSample.features.alignmentDelta * 10)));
+  const stabilityScore = Math.max(0, Math.min(100, Math.round(100 - currentSample.features.stability * 4)));
 
-  const insights = useMemo(() => {
-    const buckets: Record<BehaviorRow["period"], number> = {
-      "ช่วงเช้า": 0,
-      "ช่วงบ่าย": 0,
-      "ช่วงเย็น": 0,
-    };
-    behaviorLog.forEach((row) => {
-      if (row.angle > thresholds.warnDeg || row.state !== "normal") buckets[row.period] += 1;
-    });
-    const [topPeriod, topCount] = Object.entries(buckets).sort((a, b) => b[1] - a[1])[0];
-    const goodCount = behaviorLog.filter((row) => row.state === "normal").length;
-    const goodPct = behaviorLog.length ? Math.round((goodCount / behaviorLog.length) * 100) : 0;
-    const avgDist = behaviorLog.length
-      ? Math.round(behaviorLog.reduce((sum, row) => sum + row.distance, 0) / behaviorLog.length)
-      : Math.round(app.dist);
-
+  const sessionSummary = useMemo(() => {
+    if (!recordedRows.length) {
+      return {
+        avgAlignment: 0,
+        avgStability: 0,
+        roughEvents: 0,
+        redFrames: 0,
+      };
+    }
+    const avgAlignment =
+      recordedRows.reduce((sum, row) => sum + row.features.alignmentDelta, 0) / recordedRows.length;
+    const avgStability = recordedRows.reduce((sum, row) => sum + row.features.stability, 0) / recordedRows.length;
     return {
-      topPeriod,
-      topCount,
-      goodPct,
-      avgDist,
+      avgAlignment,
+      avgStability,
+      roughEvents: recordedRows.filter((row) => row.vibration > 0).length,
+      redFrames: recordedRows.filter((row) => row.features.ledState === "red").length,
     };
-  }, [app.dist, behaviorLog]);
+  }, [recordedRows]);
+
+  const commitSample = useCallback((data: Record<string, unknown>, source: ConnectionSource) => {
+    const sample = normalizePayload(data, source);
+    setCurrentSample(sample);
+    setHistory((prev) => [...prev.slice(-(HISTORY_LIMIT - 1)), sample]);
+    if (isRecordingRef.current && startedAtRef.current) {
+      setRecordedRows((prev) => [...prev, createRecordingRow(sample, metaRef.current, startedAtRef.current)]);
+    }
+  }, []);
+
+  const scheduleReconnect = useCallback(() => {
+    if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
+    reconnectRef.current = window.setTimeout(() => connectRef.current(), 3000);
+  }, []);
+
+  const connectSensor = useCallback(() => {
+    if (!shouldAutoConnectSensor()) {
+      setSensor({ source: "mock", status: "mock" });
+      return;
+    }
+    if (typeof window === "undefined" || !("WebSocket" in window)) {
+      setSensor({ source: "mock", status: "mock" });
+      return;
+    }
+    if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
+    setSensor((prev) => ({ ...prev, status: "connecting" }));
+    try {
+      const host = window.location.hostname || "127.0.0.1";
+      const ws = new WebSocket(`ws://${host}:8765`);
+      wsRef.current = ws;
+      ws.onopen = () => {
+        setSensor({ source: "ws", status: "live" });
+        lastMessageRef.current = nowMs();
+      };
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as Record<string, unknown>;
+          commitSample(data, "ws");
+          lastMessageRef.current = nowMs();
+        } catch {
+          setSensor({ source: "mock", status: "mock" });
+        }
+      };
+      ws.onclose = () => {
+        if (wsRef.current !== ws) return;
+        setSensor({ source: "mock", status: "mock" });
+        scheduleReconnect();
+      };
+      ws.onerror = () => ws.close();
+    } catch {
+      setSensor({ source: "mock", status: "mock" });
+      scheduleReconnect();
+    }
+  }, [commitSample, scheduleReconnect]);
 
   useEffect(() => {
     const memory = readMemory();
-    const restored = createAppState(memory);
-    previousWalletRef.current = { gp: restored.gp, coins: restored.coins };
-    previousStageRef.current = stageIndexForGp(restored.gp);
-    appRef.current = restored;
-    setApp(restored);
-    setGuideSeen(memory?.guideSeen === true);
-    setGuideOpen(memory?.guideSeen === true ? false : true);
     setThemePref(memory?.theme ?? "system");
-    setPersona({ ...personaDefaults, ...(memory?.persona || {}) });
+    setMeta((prev) => (prev.sessionId === "clip-session" ? { ...prev, sessionId: makeSessionId() } : prev));
     setHydrated(true);
   }, []);
 
@@ -643,125 +868,21 @@ export function SatiApp() {
   }, [themePref]);
 
   useEffect(() => {
-    appRef.current = app;
-  }, [app]);
-
-  useEffect(() => {
     if (!hydrated) return;
-    const data: ProgressMemory = {
-      gp: app.gp,
-      coins: app.coins,
-      stretchIdx: app.stretchIdx,
-      breaks: app.breaks,
-      bestGoodSec: app.bestGoodSec,
-      guideSeen,
-      missionsDone: app.missionsDone,
-      owned: app.owned,
-      decorations: app.decorations,
-      theme: themePref,
-      persona,
-    };
-    writeMemory(data);
-  }, [
-    hydrated,
-    app.gp,
-    app.coins,
-    app.stretchIdx,
-    app.breaks,
-    app.bestGoodSec,
-    guideSeen,
-    app.missionsDone,
-    app.owned,
-    app.decorations,
-    themePref,
-    persona,
-  ]);
+    writeMemory({ theme: themePref });
+  }, [hydrated, themePref]);
 
   useEffect(() => {
-    const previous = previousWalletRef.current;
-    if (previous.gp !== app.gp) {
-      setGpPulse(true);
-      window.setTimeout(() => setGpPulse(false), 650);
-    }
-    if (previous.coins !== app.coins) {
-      setCoinPulse(true);
-      window.setTimeout(() => setCoinPulse(false), 650);
-    }
-    previousWalletRef.current = { gp: app.gp, coins: app.coins };
-  }, [app.gp, app.coins]);
+    metaRef.current = meta;
+  }, [meta]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    const previousStage = previousStageRef.current;
-    if (stageIndex > previousStage) {
-      setLevelPulse(true);
-      window.setTimeout(() => setLevelPulse(false), 900);
-      toast.success(`ต้นไม้เลื่อนขั้นเป็น ${stages[stageIndex].name}!`);
-    }
-    previousStageRef.current = stageIndex;
-  }, [hydrated, stageIndex]);
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
 
-  const scheduleReconnect = useCallback(() => {
-    if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
-    reconnectRef.current = window.setTimeout(() => connectRef.current(), 3000);
-  }, []);
-
-  const applySensorData = useCallback((data: Record<string, unknown>) => {
-    setApp((prev) => {
-      const next = { ...prev };
-      const backAngle = Number(data.backAngle);
-      const screenDistance = Number(data.screenDistance);
-      if (Number.isFinite(backAngle)) next.ang = backAngle;
-      if (Number.isFinite(screenDistance)) next.dist = screenDistance;
-      const posture = normalizePostureClass(data.postureClass);
-      next.postureClass = posture === "movement" ? "movement" : posture;
-      const backPostureCue = next.postureClass === "slouch" || next.postureClass === "hunched";
-      const closePostureCue = next.postureClass === "close" || next.postureClass === "too-close";
-      if (backPostureCue && next.ang <= thresholds.warnDeg) next.ang = thresholds.warnDeg + 8;
-      if (closePostureCue && next.dist >= thresholds.closeCm) next.dist = thresholds.closeCm - 6;
-      appRef.current = next;
-      return next;
-    });
-    lastMessageRef.current = nowMs();
-  }, []);
-
-  const connectSensor = useCallback(() => {
-    if (!shouldAutoConnectSensor()) {
-      setSensor({ source: "mock", status: "mock" });
-      return;
-    }
-    if (typeof window === "undefined" || !("WebSocket" in window)) {
-      setSensor({ source: "mock", status: "mock" });
-      return;
-    }
-    if (reconnectRef.current) window.clearTimeout(reconnectRef.current);
-    setSensor((prev) => ({ ...prev, status: "connecting" }));
-    try {
-      const host = window.location.hostname || "127.0.0.1";
-      const ws = new WebSocket(`ws://${host}:8765`);
-      wsRef.current = ws;
-      ws.onopen = () => {
-        setSensor({ source: "ws", status: "live" });
-        lastMessageRef.current = nowMs();
-      };
-      ws.onmessage = (event) => {
-        try {
-          applySensorData(JSON.parse(event.data));
-        } catch {
-          setSensor({ source: "mock", status: "mock" });
-        }
-      };
-      ws.onclose = () => {
-        if (wsRef.current !== ws) return;
-        setSensor({ source: "mock", status: "mock" });
-        scheduleReconnect();
-      };
-      ws.onerror = () => ws.close();
-    } catch {
-      setSensor({ source: "mock", status: "mock" });
-      scheduleReconnect();
-    }
-  }, [applySensorData, scheduleReconnect]);
+  useEffect(() => {
+    startedAtRef.current = startedAt;
+  }, [startedAt]);
 
   useEffect(() => {
     connectRef.current = connectSensor;
@@ -779,188 +900,125 @@ export function SatiApp() {
   useEffect(() => {
     if (!hydrated) return;
     const timer = window.setInterval(() => {
-      const time = nowMs();
-      let queuedToasts: string[] = [];
-      let rowToLog: BehaviorRow | null = null;
-      const prev = appRef.current;
-      const dt = Math.min(time - prev.last, 1000);
-      const next: AppState = {
-        ...prev,
-        last: time,
-        missionsDone: { ...prev.missionsDone },
-        owned: [...prev.owned],
-        decorations: [...prev.decorations],
-      };
-
       if (sensor.source === "ws") {
-        next.sit += dt / 1000;
-        if (lastMessageRef.current && time - lastMessageRef.current > 5000) {
+        if (lastMessageRef.current && nowMs() - lastMessageRef.current > 5000) {
           wsRef.current?.close();
           setSensor({ source: "mock", status: "mock" });
           scheduleReconnect();
         }
       } else {
-        mockSensors(next, dt, time);
+        mockIndexRef.current += 1;
+        const sample = createMockPayload(mockIndexRef.current);
+        commitSample(sample.raw, "mock");
       }
-
-      next.distanceTotalMs += dt;
-      if (next.dist >= thresholds.closeCm) next.distanceGoodMs += dt;
-      runStateMachine(next, dt, queuedToasts);
-      checkMissions(next, queuedToasts);
-
-      logAccRef.current += dt;
-      if (logAccRef.current >= 2000) {
-        logAccRef.current = 0;
-        const hour = new Date().getHours();
-        rowToLog = {
-          hour,
-          period: periodName(hour),
-          state: next.state,
-          angle: next.ang,
-          distance: next.dist,
-        };
-      }
-
-      appRef.current = next;
-      setApp(next);
-
-      queuedToasts.forEach((message) => toast.success(message));
-      if (rowToLog) {
-        setBehaviorLog((prev) => [...prev.slice(-239), rowToLog as BehaviorRow]);
+      if (isRecordingRef.current && startedAtRef.current) {
+        setElapsedMs(nowMs() - startedAtRef.current);
       }
     }, 250);
     return () => window.clearInterval(timer);
-  }, [hydrated, scheduleReconnect, sensor.source]);
+  }, [commitSample, hydrated, scheduleReconnect, sensor.source]);
 
-  const setMode = (mode: MockMode) => {
-    if (live) return;
-    const time = nowMs();
-    setApp((prev) => {
-      const next = {
-        ...prev,
-        mode,
-        modeStart: time,
-        backMs: 0,
-        distMs: 0,
-        recMs: 0,
-        sit: mode === "normal" ? 0 : mode === "long" ? thresholds.longSit - 26 : prev.sit,
-        state: mode === "normal" || mode === "movement" ? "normal" : prev.state,
-      };
-      appRef.current = next;
-      return next;
-    });
+  const updateMeta = <K extends keyof TestMeta>(key: K, value: TestMeta[K]) => {
+    setMeta((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleStretchDone = () => {
-    setApp((prev) => {
-      const next = {
-        ...prev,
-        gp: prev.gp + 10,
-        breaks: prev.breaks + 1,
-        state: "normal" as SatiState,
-        mode: "normal" as MockMode,
-        sit: 0,
-        backMs: 0,
-        distMs: 0,
-        recMs: 0,
-        ang: 15,
-        dist: 60,
-        modeStart: nowMs(),
-        stretchIdx: (prev.stretchIdx + 1) % stretches.length,
-        missionsDone: { ...prev.missionsDone },
-      };
-      const events: string[] = [];
-      next.coins += 15;
-      checkMissions(next, events);
-      events.forEach((message) => toast.success(message));
-      appRef.current = next;
-      return next;
-    });
-    toast.success("ทำท่ายืดเหยียดสำเร็จ · +10 GP 🌿");
+  const startTest = () => {
+    const nextSession = meta.sessionId || makeSessionId();
+    const start = nowMs();
+    setMeta((prev) => ({ ...prev, sessionId: nextSession }));
+    setRecordedRows([]);
+    setStartedAt(start);
+    setElapsedMs(0);
+    startedAtRef.current = start;
+    isRecordingRef.current = true;
+    setIsRecording(true);
+    toast.success("Test recording started");
   };
 
-  const resetDemo = () => {
-    const fresh = createAppState(null);
-    previousWalletRef.current = { gp: fresh.gp, coins: fresh.coins };
-    previousStageRef.current = stageIndexForGp(fresh.gp);
-    appRef.current = fresh;
-    setApp(fresh);
-    setBehaviorLog([]);
-    logAccRef.current = 0;
-    toast.success("รีเซ็ตเดโมแล้ว");
+  const stopTest = () => {
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    setElapsedMs((prev) => (startedAt ? Math.max(prev, nowMs() - startedAt) : prev));
+    toast.success("Test recording stopped");
   };
 
-  const setNearLevelDemo = () => {
-    const nextStage = stages[Math.min(stageIndex + 1, stages.length - 1)];
-    setApp((prev) => {
-      const next = {
-        ...prev,
-        gp: Math.max(0, nextStage.at - 20),
-      };
-      appRef.current = next;
-      return next;
-    });
-    toast.success("ตั้งค่าเดโมให้ใกล้ขึ้นขั้นแล้ว");
+  const resetSession = () => {
+    const next = makeSessionId();
+    setMeta((prev) => ({ ...prev, sessionId: next, testName: "Lifting Test Session", notes: "" }));
+    setRecordedRows([]);
+    setElapsedMs(0);
+    setStartedAt(0);
+    startedAtRef.current = 0;
+    isRecordingRef.current = false;
+    setIsRecording(false);
+    toast.success("Session reset");
   };
 
-  const completeGuide = () => {
-    setGuideSeen(true);
-    setGuideOpen(false);
-  };
-
-  const replayGuide = () => {
-    setGuideIndex(0);
-    setGuideOpen(true);
+  const exportCsv = () => {
+    if (!recordedRows.length) {
+      toast.error("No recorded rows to export yet");
+      return;
+    }
+    downloadCsv(recordedRows, meta);
+    toast.success(`Exported ${recordedRows.length} rows`);
   };
 
   const cycleTheme = () => {
-    setThemePref((prev) => (prev === "dark" ? "light" : prev === "light" ? "system" : "dark"));
+    setThemePref((current) => (current === "dark" ? "light" : current === "light" ? "system" : "dark"));
   };
 
-  const updatePersona = <K extends keyof PersonaProfile>(key: K, value: PersonaProfile[K]) => {
-    setPersona((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const copyPersonaPrompt = async () => {
-    try {
-      await navigator.clipboard.writeText(avatarRecommendation.prompt);
-      toast.success("คัดลอก LLM brief แล้ว");
-    } catch {
-      toast.message("คัดลอกไม่สำเร็จ แต่ยังดู brief ได้บนหน้าจอ");
+  const sendBleCommand = (command: "ble.connect" | "ble.disconnect") => {
+    const ws = wsRef.current;
+    if (!live || !ws || ws.readyState !== WebSocket.OPEN) {
+      toast.error("WebSocket bridge is not live yet");
+      return;
     }
+
+    ws.send(JSON.stringify({ type: command }));
+    setCurrentSample((prev) => ({
+      ...prev,
+      ble: {
+        ...prev.ble,
+        connected: command === "ble.connect" ? prev.ble.connected : false,
+        status: command === "ble.connect" ? "scanning" : "manual-disconnected",
+      },
+    }));
+    toast.success(command === "ble.connect" ? "Bluetooth scan requested" : "Bluetooth disconnect requested");
   };
 
-  const buyItem = (itemId: string) => {
-    const item = shopItems.find((candidate) => candidate.id === itemId);
-    if (!item) return;
-    setApp((prev) => {
-      if (prev.owned.includes(item.id) || prev.coins < item.price) return prev;
-      toast.success(`ได้ ${item.name} แล้ว!`);
-      const next = {
-        ...prev,
-        coins: prev.coins - item.price,
-        owned: [...prev.owned, item.id],
-        decorations: [...prev.decorations, item.emoji],
-      };
-      appRef.current = next;
-      return next;
-    });
-  };
+  const bleStatus = currentSample.ble.status;
+  const bleConnected = currentSample.ble.connected && bleStatus === "connected";
+  const bleScanning = live && bleStatus === "scanning";
+  const bleControlDisabled = !live || bleScanning;
+  const bleControlLabel = !live
+    ? "Bridge offline"
+    : bleScanning
+      ? "Scanning..."
+      : bleConnected
+        ? "Disconnect Bluetooth"
+        : "Connect Bluetooth";
+  const bleControlTitle = !live
+    ? "Open this app with ?live=1 and make sure the Python bridge is running."
+    : bleScanning
+      ? "Sati Clip is scanning for Sati-Nano."
+      : bleConnected
+        ? "Disconnect UNO Q from Sati-Nano BLE."
+        : "Ask UNO Q to scan and connect to Sati-Nano.";
 
   return (
-    <main className="sati-root" data-state={app.state} aria-label="Sati posture and focus coach">
-      <div className="shell">
-        <header className="top">
-          <div className="brand">
-            <div className="mark" aria-hidden="true">
-              <SatiMark />
+    <main className="clip-root" data-led={currentSample.features.ledState} aria-label="Sati Clip sensor lab">
+      <div className="clip-shell">
+        <header className="clip-top">
+          <div className="clip-brand">
+            <div className="clip-mark" aria-hidden="true">
+              <Activity />
             </div>
             <div>
-              <h1>Sati</h1>
-              <div className="sub">Posture &amp; Focus Coach</div>
+              <h1>Sati Clip</h1>
+              <div className="clip-sub">Lifting movement awareness lab</div>
             </div>
           </div>
-          <div className="wallet" aria-live="polite" data-testid="wallet-chip">
+          <div className="clip-toolbar">
             <button
               className="theme-toggle"
               onClick={cycleTheme}
@@ -969,461 +1027,941 @@ export function SatiApp() {
               title={`Theme: ${themePref} (resolved: ${resolvedTheme})`}
               type="button"
             >
-              {themePref === "system" ? (
-                <Monitor aria-hidden="true" />
-              ) : resolvedTheme === "dark" ? (
-                <Moon aria-hidden="true" />
-              ) : (
-                <Sun aria-hidden="true" />
-              )}
+              {resolvedTheme === "dark" ? <Moon aria-hidden="true" /> : <Sun aria-hidden="true" />}
             </button>
-            {hackathonDemoMode ? (
-              <Badge className="demo-mode-badge" variant="secondary">
-                🎬 Demo Mode · GP เร่งให้ดูเร็วขึ้น
-              </Badge>
-            ) : null}
-            <Badge
-              className={gpPulse ? "wallet-chip gain-pop" : "wallet-chip"}
-              variant="default"
-              data-testid="wallet-gp"
-            >
-              <Leaf data-icon="inline-start" aria-hidden="true" />
-              <span>{app.gp}</span> GP
+            <Badge className={live ? "clip-live-badge live" : "clip-live-badge"} variant="secondary">
+              {live ? <Wifi aria-hidden="true" /> : <WifiOff aria-hidden="true" />}
+              {live ? "WebSocket live" : "Mock stream"}
             </Badge>
-            <Badge
-              className={coinPulse ? "wallet-chip coin gain-pop" : "wallet-chip coin"}
-              variant="warm"
-              data-testid="wallet-coin"
-            >
-              <span className="coin-dot">¢</span>
-              <span>{app.coins}</span>
+            <Badge className={bleConnected ? "clip-live-badge live" : "clip-live-badge"} variant="secondary">
+              <Bluetooth aria-hidden="true" />
+              {bleStatusCopy(bleStatus)}
             </Badge>
+            <Button
+              className="ble-control-button"
+              variant="outline"
+              onClick={() => sendBleCommand(bleConnected ? "ble.disconnect" : "ble.connect")}
+              disabled={bleControlDisabled}
+              title={bleControlTitle}
+              aria-label={bleControlLabel}
+            >
+              <Bluetooth aria-hidden="true" />
+              {bleControlLabel}
+            </Button>
+            <Badge className="clip-led-badge" variant="secondary">
+              <span className="clip-led-dot" aria-hidden="true" />
+              LED {ledCopy(currentSample.features.ledState)}
+            </Badge>
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button className="cockpit-settings-button" variant="outline" aria-label="Open Sati Clip settings">
+                  <Settings aria-hidden="true" />
+                  Settings
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="clip-settings-dialog">
+                <DialogHeader>
+                  <DialogTitle>Session Settings</DialogTitle>
+                  <DialogDescription>
+                    Participant notes stay in browser memory until you export CSV.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="settings-grid">
+                  <label className="clip-field">
+                    <span>Participant ID</span>
+                    <input
+                      value={meta.participantId}
+                      onChange={(event) => updateMeta("participantId", event.target.value)}
+                      aria-label="Anonymous participant id"
+                    />
+                  </label>
+                  <label className="clip-field">
+                    <span>Session ID</span>
+                    <input
+                      value={meta.sessionId}
+                      onChange={(event) => updateMeta("sessionId", event.target.value)}
+                      aria-label="Session id"
+                    />
+                  </label>
+                  <label className="clip-field span-2">
+                    <span>Notes</span>
+                    <textarea
+                      value={meta.notes}
+                      onChange={(event) => updateMeta("notes", event.target.value)}
+                      placeholder="Box height, task setup, left/right carry, sensor placement..."
+                      aria-label="Session notes"
+                    />
+                  </label>
+                  <div className="settings-hint span-2">
+                    <span>Live mode uses <code>?live=1</code>; otherwise Sati Clip keeps mock fallback alive.</span>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </header>
 
-        <Tabs value={view} onValueChange={setView} className="sati-tabs">
-          <TabsList className="view-tabs" aria-label="Sati views">
-            <TabsTrigger value="coach">Coach</TabsTrigger>
-            <TabsTrigger value="insights">Second-Brain</TabsTrigger>
-            <TabsTrigger value="avatar">Avatar</TabsTrigger>
+        <Tabs value={view} onValueChange={setView} className="clip-tabs">
+          <TabsList className="view-tabs cockpit-nav" aria-label="Sati Clip views">
+            <TabsTrigger value="sensors">
+              <SlidersHorizontal aria-hidden="true" />
+              Sensors
+            </TabsTrigger>
+            <TabsTrigger value="dataset">
+              <Database aria-hidden="true" />
+              Dataset
+            </TabsTrigger>
+            <TabsTrigger value="summary">
+              <BarChart3 aria-hidden="true" />
+              Summary
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="coach" className="grid view-panel">
-            <Card className="hero">
-              <CardHeader className="hero-head">
-                <div className="state-line" data-testid="state-line" aria-live="polite">
-                  <CardTitle className="state-txt" data-testid="state-title">
-                    {stateCopy[app.state].title}
-                  </CardTitle>
-                  <Badge className="state-pill" variant="secondary">
-                    <span className="dot" aria-hidden="true" />
-                    {stateCopy[app.state].cue}
-                  </Badge>
+          <TabsContent value="sensors" className="clip-panel cockpit-panel">
+            <section className="cockpit-grid">
+              <div className="session-command" aria-label="Lifting test session controls">
+                <div className="session-title">
+                  <h2>Lifting Test Session</h2>
+                  <span>{isRecording ? "กำลังบันทึกข้อมูล" : "พร้อมเก็บข้อมูล .csv"}</span>
                 </div>
-              </CardHeader>
-              <CardContent className="hero-content">
-                <div className="plantwrap">
-                  <div className="halo" />
-                  <PlantAvatar decorations={app.decorations} />
+                <div className="session-fields">
+                  <label className="session-field wide">
+                    <span>Test Name</span>
+                    <input
+                      value={meta.testName}
+                      onChange={(event) => updateMeta("testName", event.target.value)}
+                      aria-label="Test name"
+                    />
+                  </label>
+                  <label className="session-field">
+                    <span>Movement Label</span>
+                    <select
+                      value={meta.label}
+                      onChange={(event) => updateMeta("label", event.target.value as MovementLabel)}
+                      aria-label="Movement label"
+                    >
+                      {labelOptions.map((label) => (
+                        <option key={label.value} value={label.value}>
+                          {label.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="session-field weight">
+                    <span>Weight</span>
+                    <input
+                      value={meta.objectWeightKg}
+                      onChange={(event) => updateMeta("objectWeightKg", event.target.value)}
+                      inputMode="decimal"
+                      placeholder="kg"
+                      aria-label="Object weight in kilograms"
+                    />
+                  </label>
+                </div>
+                <div className="session-actions">
+                  <Button className="start-button" onClick={startTest} disabled={isRecording}>
+                    <Play data-icon="inline-start" aria-hidden="true" />
+                    Start Test
+                  </Button>
+                  <Button className="stop-button" onClick={stopTest} disabled={!isRecording} variant="outline">
+                    <Square data-icon="inline-start" aria-hidden="true" />
+                    Stop Test
+                  </Button>
+                  <Button className="export-button" onClick={exportCsv} variant="warm">
+                    <Download data-icon="inline-start" aria-hidden="true" />
+                    Export CSV
+                  </Button>
+                  <Button className="reset-button" onClick={resetSession} variant="ghost" aria-label="Reset test session">
+                    <RotateCcw data-icon="inline-start" aria-hidden="true" />
+                  </Button>
+                </div>
+              </div>
 
-                  <aside className="action-card" aria-live="polite">
+              <SensorConnectionPanel sample={currentSample} live={live} />
+              <AnimeMotionStage sample={currentSample} />
+              <FeatureHud sample={currentSample} alignmentScore={alignmentScore} stabilityScore={stabilityScore} />
+              <InstrumentCharts
+                history={history}
+                recordedRows={recordedRows}
+                isRecording={isRecording}
+                elapsedMs={elapsedMs}
+                label={meta.label}
+              />
+            </section>
+
+            <section className="clip-lab-grid legacy-sensor-grid" aria-hidden="true">
+              <Card className="clip-card test-card">
+                <CardHeader className="clip-card-head">
+                  <CardTitle>Test Session</CardTitle>
+                  <CardDescription>Label each run before collecting AI training data.</CardDescription>
+                </CardHeader>
+                <CardContent className="clip-card-content">
+                  <div className="clip-field-grid">
+                    <label className="clip-field span-2">
+                      <span>Test name</span>
+                      <input
+                        value={meta.testName}
+                        onChange={(event) => updateMeta("testName", event.target.value)}
+                        aria-label="Test name"
+                      />
+                    </label>
+                    <label className="clip-field">
+                      <span>Movement label</span>
+                      <select
+                        value={meta.label}
+                        onChange={(event) => updateMeta("label", event.target.value as MovementLabel)}
+                        aria-label="Movement label"
+                      >
+                        {labelOptions.map((label) => (
+                          <option key={label.value} value={label.value}>
+                            {label.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="clip-field">
+                      <span>Object weight (kg)</span>
+                      <input
+                        value={meta.objectWeightKg}
+                        onChange={(event) => updateMeta("objectWeightKg", event.target.value)}
+                        inputMode="decimal"
+                        placeholder="optional"
+                        aria-label="Object weight in kilograms"
+                      />
+                    </label>
+                    <label className="clip-field">
+                      <span>Participant ID</span>
+                      <input
+                        value={meta.participantId}
+                        onChange={(event) => updateMeta("participantId", event.target.value)}
+                        aria-label="Anonymous participant id"
+                      />
+                    </label>
+                    <label className="clip-field">
+                      <span>Session ID</span>
+                      <input
+                        value={meta.sessionId}
+                        onChange={(event) => updateMeta("sessionId", event.target.value)}
+                        aria-label="Session id"
+                      />
+                    </label>
+                    <label className="clip-field span-2">
+                      <span>Notes</span>
+                      <textarea
+                        value={meta.notes}
+                        onChange={(event) => updateMeta("notes", event.target.value)}
+                        placeholder="Box height, task setup, left/right carry, sensor placement..."
+                        aria-label="Session notes"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="clip-record-bar" aria-live="polite">
                     <div>
-                      <div className="ac-title">{activeStretch.title}</div>
-                      <div className="ac-copy">{activeStretch.copy}</div>
-                      <Button className="ac-btn" onClick={handleStretchDone}>
-                        <Check data-icon="inline-start" aria-hidden="true" />
-                        ทำเสร็จแล้ว · +10 GP
+                      <strong>{isRecording ? "Recording" : recordedRows.length ? "Paused" : "Ready"}</strong>
+                      <span>{recordedRows.length} rows · {formatElapsed(elapsedMs)}</span>
+                    </div>
+                    <div className="clip-record-actions">
+                      <Button onClick={startTest} disabled={isRecording}>
+                        <Play data-icon="inline-start" aria-hidden="true" />
+                        Start Test
+                      </Button>
+                      <Button onClick={stopTest} disabled={!isRecording} variant="outline">
+                        <Square data-icon="inline-start" aria-hidden="true" />
+                        Stop
+                      </Button>
+                      <Button onClick={exportCsv} variant="warm">
+                        <Download data-icon="inline-start" aria-hidden="true" />
+                        Export CSV
+                      </Button>
+                      <Button onClick={resetSession} variant="ghost" aria-label="Reset test session">
+                        <RotateCcw data-icon="inline-start" aria-hidden="true" />
                       </Button>
                     </div>
-                    <div className="ac-ill" aria-hidden="true">
-                      <svg viewBox="0 0 60 76">
-                        <circle cx="30" cy="12" r="7" />
-                        <path d="M30 19V46" />
-                        <path d="M30 26L16 34" />
-                        <path d="M30 26L46 18" />
-                        <path d="M30 46L20 66" />
-                        <path d="M30 46L42 66" />
-                      </svg>
-                    </div>
-                  </aside>
-                </div>
-
-                <div className={levelPulse ? "growth level-pop" : "growth"}>
-                  <div className="growth-top">
-                    <span className="stage-name" data-testid="stage-name">
-                      {currentStage.name}
-                    </span>
-                    <span>
-                      {stageIndex === stages.length - 1
-                        ? `${app.gp} GP · MAX`
-                        : `${app.gp} / ${currentStage.next} GP`}
-                    </span>
                   </div>
-                  <Progress className="growth-progress" value={stageProgress} data-testid="growth-progress" />
-                  <div className="stage-track">
-                    {stages.map((stage, index) => (
-                      <span key={stage.name} className={index <= stageIndex ? "on" : ""}>
-                        {stage.name.split(" ")[0]}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="side">
-              <Card className="signals">
-                <CardHeader className="compact-card-head">
-                  <CardTitle className="sg-title">Live Signals</CardTitle>
-                  <CardDescription className="sg-sub">
-                    ค่าจริงจากเซนเซอร์ — IMU, ToF, กล้อง
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="compact-card-content" aria-live="polite" aria-atomic="false">
-                  <div className={live ? "sensor-status live" : "sensor-status"} aria-live="polite">
-                    {live ? (
-                      <Wifi data-icon="inline-start" aria-hidden="true" />
-                    ) : (
-                      <WifiOff data-icon="inline-start" aria-hidden="true" />
-                    )}
-                    {live ? "Arduino WebSocket: live" : "Arduino WebSocket: mock fallback"}
-                  </div>
-                  <SignalRow testId="signal-back-angle" label="Back Angle" detail="IMU · Nano 33 BLE" value={Math.round(app.ang)} unit="°" stat={angStat(app.ang)} />
-                  <SignalRow testId="signal-screen-distance" label="Screen Distance" detail="Modulino ToF" value={Math.round(app.dist)} unit="cm" stat={app.dist < thresholds.closeCm ? "Too Close" : "Good"} />
-                  <SignalRow testId="signal-posture-class" label="Posture Class" detail="sensor cue" value={app.postureClass} stat={live ? "Arduino live" : "Mock fallback"} posture />
-                  <SignalRow testId="signal-sitting-time" label="Sitting Time" detail="since last break" value={fmt(app.sit)} stat={app.sit >= thresholds.longSit ? "Take a break" : "Counting"} />
                 </CardContent>
               </Card>
 
-              <Card className="missions">
-                <CardHeader className="compact-card-head mission-head">
-                  <CardTitle className="m-title">ภารกิจวันนี้</CardTitle>
-                  <CardDescription>Daily Missions</CardDescription>
+              <Card className="clip-card sensor-stack-card">
+                <CardHeader className="clip-card-head">
+                  <CardTitle>Sensor Stack</CardTitle>
+                  <CardDescription>UNO Q receives Sati-Nano and Modulino signals.</CardDescription>
                 </CardHeader>
-                <CardContent className="compact-card-content mission-list">
-                  {(Object.keys(missionCopy) as MissionId[]).map((id) => (
-                    <div key={id} className={app.missionsDone[id] ? "mission done" : "mission"}>
-                      <div className="m-check">
-                        <Check aria-hidden="true" />
-                      </div>
-                      <div className="m-body">
-                        <div className="m-name">{missionCopy[id].name}</div>
-                      </div>
-                      <div className="m-reward">
-                        <span className="coin-small">¢</span>
-                        {missionCopy[id].reward}
-                      </div>
-                    </div>
+                <CardContent className="clip-card-content sensor-stack">
+                  {sensorStack.map((item) => (
+                    <SensorStackRow key={item.key} item={item} sample={currentSample} live={live} />
                   ))}
                 </CardContent>
               </Card>
-            </div>
+
+              <Card className="clip-card motion-card">
+                <CardHeader className="clip-card-head">
+                  <CardTitle>3D Alignment View</CardTitle>
+                  <CardDescription>Upper vs thigh motion, driven by live sensor values.</CardDescription>
+                </CardHeader>
+                <CardContent className="clip-card-content">
+                  <MotionObject3D sample={currentSample} />
+                  <div className="motion-caption">
+                    <div>
+                      <span>Alignment Delta</span>
+                      <strong>{fmt(currentSample.features.alignmentDelta)}</strong>
+                    </div>
+                    <div>
+                      <span>Stability</span>
+                      <strong>{fmt(currentSample.features.stability)}</strong>
+                    </div>
+                    <div>
+                      <span>Motion</span>
+                      <strong>{fmt(currentSample.motion)}</strong>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="clip-card feature-card">
+                <CardHeader className="clip-card-head">
+                  <CardTitle>Live Features</CardTitle>
+                  <CardDescription>Derived features used for model-ready CSV rows.</CardDescription>
+                </CardHeader>
+                <CardContent className="clip-card-content feature-grid">
+                  <FeatureTile icon={Waves} label="Upper Signal" value={fmt(currentSample.features.upperSignal)} />
+                  <FeatureTile icon={Activity} label="Thigh Signal" value={fmt(currentSample.features.thighSignal)} />
+                  <FeatureTile icon={Gauge} label="Alignment Delta" value={fmt(currentSample.features.alignmentDelta)} tone="state" />
+                  <FeatureTile icon={Zap} label="Stability" value={fmt(currentSample.features.stability)} tone="state" />
+                  <FeatureTile icon={Vibrate} label="Vibration Count" value={currentSample.features.vibrationCount} />
+                  <FeatureTile icon={Thermometer} label="Temperature" value={`${fmt(currentSample.temperature)}°C`} />
+                  <FeatureTile icon={Ruler} label="Distance" value={`${fmt(currentSample.distance)} cm`} />
+                  <FeatureTile icon={Radio} label="LED State" value={ledCopy(currentSample.features.ledState)} tone="state" />
+                  <FeatureTile icon={RotateCcw} label="Roll / Pitch / Yaw" value={`${fmtMaybe(currentSample.orientationRpy?.roll)} / ${fmtMaybe(currentSample.orientationRpy?.pitch)} / ${fmtMaybe(currentSample.orientationRpy?.yaw)}Â°`} />
+                  <FeatureTile icon={Signal} label="Magnetometer" value={`${fmtMaybe(currentSample.upperMag?.mx)} / ${fmtMaybe(currentSample.upperMag?.my)} / ${fmtMaybe(currentSample.upperMag?.mz)}`} />
+                  <FeatureTile icon={Cpu} label="Light / Proximity" value={`${fmtMaybe(currentSample.nanoPacket?.lc, 0)} / ${fmtMaybe(currentSample.nanoPacket?.p, 0)}`} />
+                </CardContent>
+              </Card>
+
+              <Card className="clip-card chart-card">
+                <CardHeader className="clip-card-head">
+                  <CardTitle>Live Sensor Graphs</CardTitle>
+                  <CardDescription>Short history for the current run. CSV keeps full rows after Start.</CardDescription>
+                </CardHeader>
+                <CardContent className="clip-card-content chart-grid">
+                  <Sparkline title="Upper Signal" values={history.map((row) => row.features.upperSignal)} />
+                  <Sparkline title="Thigh Signal" values={history.map((row) => row.features.thighSignal)} />
+                  <Sparkline title="Alignment Delta" values={history.map((row) => row.features.alignmentDelta)} />
+                  <Sparkline title="Stability" values={history.map((row) => row.features.stability)} />
+                  <Sparkline title="Vibration" values={history.map((row) => row.vibration)} />
+                  <Sparkline title="Temperature" values={history.map((row) => row.temperature)} />
+                </CardContent>
+              </Card>
+
+              <Card className="clip-card json-card">
+                <CardHeader className="clip-card-head">
+                  <CardTitle>Latest JSON</CardTitle>
+                  <CardDescription>Raw bridge payload for debugging and dataset alignment.</CardDescription>
+                </CardHeader>
+                <CardContent className="clip-card-content">
+                  <pre className="json-preview" aria-label="Latest sensor JSON">{latestJson}</pre>
+                </CardContent>
+              </Card>
+            </section>
           </TabsContent>
 
-          <TabsContent value="insights" className="view-panel insights-view">
-            <ViewHead title="Second-Brain Insights" copy="สรุป pattern จาก log วันนี้แบบ observation" chip={`${behaviorLog.length} logs`} />
-            <div className="insight-grid">
-              <Card className="insight-card primary">
-                <CardContent className="insight-content">
-                  <span>ฉันสังเกตว่า...</span>
-                  <strong>
-                    {insights.topCount > 0
-                      ? `${insights.topPeriod}คุณมักนั่งงอหลังมากสุด`
-                      : "วันนี้ยังไม่เห็น pattern ท่านั่งที่ต้องปรับเป็นพิเศษ"}
-                  </strong>
+          <TabsContent value="summary" className="clip-panel summary-panel">
+            <ViewHead title="Second-Brain Summary" copy="Observation summary from the current data collection session." chip={`${recordedRows.length} rows`} />
+            <div className="summary-grid">
+              <SummaryCard title="Alignment Score" value={`${alignmentScore}/100`} detail="Higher means upper and thigh signals are closer." />
+              <SummaryCard title="Stability Score" value={`${stabilityScore}/100`} detail="Lower vibration and smoother signals improve this score." />
+              <SummaryCard title="Average Delta" value={fmt(sessionSummary.avgAlignment)} detail="Mean alignment delta from recorded rows." />
+              <SummaryCard title="Rough Events" value={sessionSummary.roughEvents} detail="Rows where vibration module was active." />
+              <Card className="clip-card insight-wide">
+                <CardContent className="clip-card-content">
+                  <span className="insight-kicker">ฉันสังเกตว่า...</span>
+                  <h2>
+                    {recordedRows.length
+                      ? sessionSummary.redFrames > 0
+                        ? "Some frames show possible posture drift or unstable movement."
+                        : "This session currently looks mostly stable."
+                      : "Start a test to collect movement observations."}
+                  </h2>
                   <p>
-                    {insights.topCount > 0
-                      ? `พบ ${insights.topCount} ช่วง log ที่หลังเริ่มงอหรือ state เปลี่ยนจากปกติ`
-                      : "ข้อมูลยังนุ่มอยู่ Sati จะค่อย ๆ สรุปเมื่อมี log มากขึ้น"}
+                    Sati Clip uses sensor observations for awareness and helps the team collect cleaner labeled data for model training.
                   </p>
                 </CardContent>
               </Card>
-              <InsightCard title={`วันนี้พัก ${app.breaks} ครั้ง`} copy="นับจากการทำท่ายืดเหยียดหลังได้รับ cue จากระบบ" />
-              <InsightCard title={app.bestGoodSec > 0 ? `ท่าดีต่อเนื่องยาวสุด ${fmt(app.bestGoodSec)}` : `ท่าดีใน log ตอนนี้ ${insights.goodPct}%`} copy={`สัดส่วน state ปกติจาก log ล่าสุดอยู่ที่ ${insights.goodPct}%`} />
-              <InsightCard title={`ระยะหน้าจอเฉลี่ย ${insights.avgDist} cm`} copy={insights.avgDist < thresholds.closeCm ? "มีบางช่วงที่คุณขยับเข้าใกล้หน้าจอ ลองเว้นระยะเพิ่มเล็กน้อย" : "ระยะจาก ToF อยู่ในโซนสบายเป็นส่วนใหญ่"} />
             </div>
           </TabsContent>
 
-          <TabsContent value="avatar" className="view-panel persona-view">
-            <ViewHead
-              title="Persona Avatar"
-              copy="กรอกสไตล์การทำงานเพื่อสร้าง brief ให้ LLM แนะนำ avatar ที่เหมาะกับคุณ"
-              chip="LLM-ready"
-            />
-            <div className="persona-grid">
-              <Card className="persona-card persona-form-card">
-                <CardHeader className="compact-card-head">
-                  <CardTitle className="sg-title">
-                    <UserRound data-icon="inline-start" aria-hidden="true" />
-                    Persona Input
-                  </CardTitle>
-                  <CardDescription className="sg-sub">
-                    ข้อมูลนี้ใช้เพื่อปรับโทนภาพและบุคลิกของ avatar เท่านั้น
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="persona-content">
-                  <form className="persona-form" onSubmit={(event) => event.preventDefault()}>
-                    <div className="persona-fields">
-                      <label className="persona-field">
-                        <span>ชื่อเล่น</span>
-                        <input
-                          value={persona.nickname}
-                          onChange={(event) => updatePersona("nickname", event.target.value)}
-                          placeholder="เช่น LPK"
-                          aria-label="Persona nickname"
-                        />
-                      </label>
-                      <label className="persona-field">
-                        <span>บทบาท / งานหลัก</span>
-                        <input
-                          value={persona.role}
-                          onChange={(event) => updatePersona("role", event.target.value)}
-                          placeholder="เช่น Developer, Designer, Student"
-                          aria-label="Persona role"
-                        />
-                      </label>
-                    </div>
-
-                    <PersonaChoiceGroup
-                      legend="Work rhythm"
-                      value={persona.workStyle}
-                      choices={personaChoices.workStyle}
-                      onChange={(value) => updatePersona("workStyle", value)}
-                    />
-                    <PersonaChoiceGroup
-                      legend="Reward style"
-                      value={persona.motivation}
-                      choices={personaChoices.motivation}
-                      onChange={(value) => updatePersona("motivation", value)}
-                    />
-                    <PersonaChoiceGroup
-                      legend="Companion tone"
-                      value={persona.companion}
-                      choices={personaChoices.companion}
-                      onChange={(value) => updatePersona("companion", value)}
-                    />
-                    <PersonaChoiceGroup
-                      legend="Visual mood"
-                      value={persona.visualTone}
-                      choices={personaChoices.visualTone}
-                      onChange={(value) => updatePersona("visualTone", value)}
-                    />
-
-                    <label className="persona-field">
-                      <span>รายละเอียดเพิ่มเติมสำหรับ LLM</span>
-                      <textarea
-                        value={persona.notes}
-                        onChange={(event) => updatePersona("notes", event.target.value)}
-                        placeholder="เช่น ชอบโทน anime cozy, ไม่อยากให้ avatar เตือนแรง, อยากให้มี progression แบบเกม"
-                        aria-label="Extra persona notes for LLM"
-                      />
-                    </label>
-                  </form>
-                </CardContent>
-              </Card>
-
-              <Card className="persona-card avatar-result-card">
-                <CardHeader className="compact-card-head">
-                  <CardTitle className="sg-title">
-                    <Sparkles data-icon="inline-start" aria-hidden="true" />
-                    Recommended Avatar
-                  </CardTitle>
-                  <CardDescription className="sg-sub">
-                    ระบบแนะนำทันทีจาก persona และเตรียม prompt ให้ LLM ใช้ต่อได้
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="persona-content avatar-result">
-                  <div className="avatar-showcase" aria-live="polite">
-                    <div className="avatar-orb" aria-hidden="true">
-                      {avatarRecommendation.emoji}
-                    </div>
-                    <div>
-                      <div className="avatar-kicker">Best match</div>
-                      <h3>{avatarRecommendation.name}</h3>
-                      <p>{avatarRecommendation.title}</p>
-                    </div>
-                  </div>
-
-                  <div className="avatar-palette">
-                    <Palette aria-hidden="true" />
-                    <span>{avatarRecommendation.palette}</span>
-                  </div>
-
-                  <p className="avatar-summary">{avatarRecommendation.summary}</p>
-
-                  <div className="persona-tags" aria-label="Matched persona tags">
-                    {avatarRecommendation.tags.map((tag) => (
-                      <Badge key={tag} className="persona-tag" variant="secondary">
-                        {tag}
-                      </Badge>
+          <TabsContent value="dataset" className="clip-panel dataset-panel">
+            <ViewHead title="Dataset Export" copy="Review the latest rows before exporting to CSV." chip={`${recordedRows.length} rows`} />
+            <Card className="clip-card">
+              <CardContent className="clip-card-content dataset-table-wrap">
+                <table className="dataset-table">
+                  <thead>
+                    <tr>
+                      <th>elapsed</th>
+                      <th>label</th>
+                      <th>upper</th>
+                      <th>thigh</th>
+                      <th>delta</th>
+                      <th>stability</th>
+                      <th>vibration</th>
+                      <th>roll</th>
+                      <th>pitch</th>
+                      <th>light</th>
+                      <th>LED</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recordedRows.slice(-18).map((row, index) => (
+                      <tr key={`${row.timestampMs}-${index}`}>
+                        <td>{formatElapsed(row.elapsedMs)}</td>
+                        <td>{row.label}</td>
+                        <td>{fmt(row.features.upperSignal)}</td>
+                        <td>{fmt(row.features.thighSignal)}</td>
+                        <td>{fmt(row.features.alignmentDelta)}</td>
+                        <td>{fmt(row.features.stability)}</td>
+                        <td>{row.vibration}</td>
+                        <td>{fmtMaybe(row.orientationRpy?.roll)}</td>
+                        <td>{fmtMaybe(row.orientationRpy?.pitch)}</td>
+                        <td>{fmtMaybe(row.nanoPacket?.lc, 0)}</td>
+                        <td>{ledCopy(row.features.ledState)}</td>
+                      </tr>
                     ))}
-                  </div>
-
-                  <ul className="avatar-reasons">
-                    {avatarRecommendation.why.map((reason) => (
-                      <li key={reason}>{reason}</li>
-                    ))}
-                  </ul>
-
-                  <div className="llm-brief">
-                    <div className="brief-head">
-                      <strong>LLM-ready brief</strong>
-                      <Button variant="outline" size="sm" onClick={copyPersonaPrompt}>
-                        <Copy data-icon="inline-start" aria-hidden="true" />
-                        Copy prompt
-                      </Button>
-                    </div>
-                    <pre>{JSON.stringify(personaBrief, null, 2)}</pre>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                    {!recordedRows.length ? (
+                      <tr>
+                        <td colSpan={11}>No rows recorded yet. Press Start Test to begin.</td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
           </TabsContent>
-
         </Tabs>
 
-        <footer>
-          <div className="controls" aria-label="Fallback mock controls">
-            <span className="clabel">Fallback mock:</span>
-            <Button className={app.mode === "normal" ? "fallback-btn active" : "fallback-btn"} variant="outline" disabled={live} onClick={() => setMode("normal")}>
-              นั่งปกติ
-              <small>Normal</small>
-            </Button>
-            <Button className={app.mode === "slouch" ? "fallback-btn active" : "fallback-btn"} variant="outline" disabled={live} onClick={() => setMode("slouch")}>
-              นั่งงอหลัง
-              <small>Hunched</small>
-            </Button>
-            <Button className={app.mode === "long" ? "fallback-btn active" : "fallback-btn"} variant="outline" disabled={live} onClick={() => setMode("long")}>
-              นั่งนาน
-              <small>Long sitting</small>
-            </Button>
-            <Button className={app.mode === "movement" ? "fallback-btn active" : "fallback-btn"} variant="outline" disabled={live} onClick={() => setMode("movement")}>
-              ลุกพัก
-              <small>Movement</small>
-            </Button>
-            <Button className="fallback-btn ghost" variant="ghost" onClick={resetDemo} aria-label="Reset demo progress">
-              <RotateCcw data-icon="inline-start" aria-hidden="true" />
-              Reset
-            </Button>
-            <Button className="fallback-btn ghost" variant="ghost" onClick={setNearLevelDemo}>
-              Demo: ใกล้ขึ้นขั้น
-            </Button>
-            <Button className="fallback-btn ghost" variant="ghost" onClick={replayGuide}>
-              ดู Tour อีกครั้ง
-            </Button>
-            <Button className="fallback-btn shop" variant="warm" onClick={() => setShopOpen(true)} aria-label="Open decoration shop">
-              <ShoppingBag data-icon="inline-start" aria-hidden="true" />
-              ร้านค้า · Shop
-            </Button>
-          </div>
-          <div className="foot">
-            Sati is a wellness companion · เหรียญและการเติบโตมาจากพฤติกรรมจริงที่เซนเซอร์ยืนยัน
-          </div>
+        <footer className="clip-footer">
+          <span>Sati Clip is a movement-awareness companion. Sensor observations are for feedback and dataset collection.</span>
+          <Button className="footer-export" variant="outline" onClick={exportCsv}>
+            <FileText data-icon="inline-start" aria-hidden="true" />
+            CSV
+          </Button>
         </footer>
       </div>
-
-      <Dialog open={guideOpen} onOpenChange={(open) => (open ? setGuideOpen(true) : completeGuide())}>
-        <DialogContent className="guide-card">
-          <button className="guide-skip" type="button" onClick={completeGuide}>
-            ข้าม / Skip
-          </button>
-          <div className="guide-emoji">{selectedGuide.emoji}</div>
-          <div className="guide-step">ขั้นที่ {guideIndex + 1} / {guideSteps.length}</div>
-          <DialogHeader>
-            <DialogTitle className="guide-h">{selectedGuide.title}</DialogTitle>
-            <DialogDescription className="guide-p">
-              {selectedGuide.copy}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="guide-dots" aria-hidden="true">
-            {guideSteps.map((step, index) => (
-              <i key={step.title} className={index === guideIndex ? "on" : ""} />
-            ))}
-          </div>
-          <DialogFooter className="guide-nav">
-            <Button variant="outline" onClick={() => setGuideIndex((current) => Math.max(0, current - 1))} style={{ visibility: guideIndex === 0 ? "hidden" : "visible" }}>
-              ย้อนกลับ
-            </Button>
-            <Button onClick={() => (guideIndex < guideSteps.length - 1 ? setGuideIndex((current) => current + 1) : completeGuide())}>
-              {guideIndex === guideSteps.length - 1 ? "เริ่มใช้งาน" : "ถัดไป"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={shopOpen} onOpenChange={setShopOpen}>
-        <DialogContent className="shop-card">
-          <DialogHeader className="shop-head">
-            <div>
-              <DialogTitle className="shop-title">ร้านค้าตกแต่ง</DialogTitle>
-              <DialogDescription className="shop-sub">
-                ใช้เหรียญที่ได้จากภารกิจมาแต่งต้นไม้ของคุณ · มี <b>{app.coins}</b> เหรียญ
-              </DialogDescription>
-            </div>
-            <DialogClose asChild>
-              <Button variant="outline" size="icon" aria-label="Close shop">
-                <X aria-hidden="true" />
-              </Button>
-            </DialogClose>
-          </DialogHeader>
-          <div className="shop-grid">
-            {shopItems.map((item) => {
-              const owned = app.owned.includes(item.id);
-              const canBuy = app.coins >= item.price;
-              return (
-                <div className={owned ? "shop-item owned" : "shop-item"} key={item.id}>
-                  <div className="item-emoji">{item.emoji}</div>
-                  <div className="item-name">{item.name}</div>
-                  <div className="item-price">
-                    <span className="coin-small">¢</span>
-                    {item.price}
-                  </div>
-                  <Button className="buy-btn" disabled={owned || !canBuy} onClick={() => buyItem(item.id)}>
-                    {owned ? "มีแล้ว" : canBuy ? "ซื้อ" : "เหรียญไม่พอ"}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <Toaster richColors position="top-center" theme={resolvedTheme} />
     </main>
   );
 }
 
-function SignalRow({
-  label,
-  detail,
-  value,
-  unit,
-  stat,
-  posture = false,
-  testId,
+function SensorConnectionPanel({ sample, live }: { sample: SensorSample; live: boolean }) {
+  return (
+    <aside className="cockpit-card sensor-connections" aria-label="Sensor connections">
+      <div className="cockpit-card-head">
+        <div>
+          <h3>Sensor Connections</h3>
+          <span>สถานะการเชื่อมต่อ</span>
+        </div>
+        <Leaf aria-hidden="true" />
+      </div>
+      <div className="sensor-connection-list">
+        {sensorStack.map((item) => (
+          <SensorConnectionCard key={item.key} item={item} sample={sample} live={live} />
+        ))}
+        <button className="add-sensor-card" type="button" aria-label="Add new sensor placeholder">
+          <Cpu aria-hidden="true" />
+          <strong>Add New Sensor</strong>
+          <span>รองรับ I2C / BLE / UART</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function SensorConnectionCard({
+  item,
+  sample,
+  live,
 }: {
-  label: string;
-  detail: string;
-  value: string | number;
-  unit?: string;
-  stat: string;
-  posture?: boolean;
-  testId?: string;
+  item: (typeof sensorStack)[number];
+  sample: SensorSample;
+  live: boolean;
+}) {
+  const upperActive = sample.ble.connected || (live && sample.ble.status !== "manual-disconnected");
+  const active =
+    item.key === "upper"
+      ? upperActive
+      : item.key === "vibration"
+        ? sample.vibration > 0 || live || sample.source === "mock"
+        : Number.isFinite(item.key === "thermo" ? sample.temperature : sample.distance) || live;
+  const status =
+    item.key === "upper"
+      ? sample.ble.connected
+        ? "Live"
+        : sample.ble.status === "manual-disconnected"
+          ? "Paused"
+          : sample.ble.status === "error"
+            ? "Error"
+            : live
+              ? "Scanning"
+              : "Mock"
+      : live
+        ? "Live"
+        : "Sim";
+
+  return (
+    <div className={active ? "sensor-connection-card active" : "sensor-connection-card"}>
+      <img src={item.image} alt="" loading="lazy" />
+      <div>
+        <strong>{item.name}</strong>
+        <span>{item.detail}</span>
+        <small>{item.channel}</small>
+      </div>
+      <em>{status}</em>
+    </div>
+  );
+}
+
+function AnimeMotionStage({ sample }: { sample: SensorSample }) {
+  const roll = sample.orientationRpy?.roll ?? sample.upperGyro.gx;
+  const pitch = sample.orientationRpy?.pitch ?? sample.upperGyro.gy;
+  const stageStyle = {
+    "--upper-roll": `${clamp(roll * 1.4, -22, 22)}deg`,
+    "--upper-pitch": `${clamp(pitch * 1.2, -18, 18)}deg`,
+    "--thigh-roll": `${clamp(sample.thighGyro.gx * 1.2, -18, 18)}deg`,
+    "--stage-alert": sample.features.ledState === "red" ? 1 : sample.features.ledState === "yellow" ? 0.55 : 0,
+  } as CSSProperties;
+
+  return (
+    <section className="cockpit-card anime-stage" aria-label="Body alignment visual stage" style={stageStyle}>
+      <img className="stage-bg" src={assetPath("workshop-lab-bg.webp")} alt="" aria-hidden="true" />
+      <div className="stage-shade" aria-hidden="true" />
+      <div className="stage-title">
+        <div>
+          <h3>Body Alignment 3D</h3>
+          <span>ท่าทางแบบเรียลไทม์</span>
+        </div>
+        <Badge className="stage-badge" variant="secondary">
+          <Box aria-hidden="true" />
+          {sample.ble.targetName}
+        </Badge>
+      </div>
+      <div className="stage-character-wrap" aria-hidden="true">
+        <div className="stage-platform" />
+        <div className="orbit-ring ring-upper" />
+        <div className="orbit-ring ring-thigh" />
+        <div className="orbit-ring ring-floor" />
+        <div className="axis axis-y">Y</div>
+        <div className="axis axis-z">Z</div>
+        <img className="stage-character" src={assetPath("lifting-character.png")} alt="" />
+      </div>
+      <GyroPanel title="Upper (Sati-Nano)" vector={sample.upperGyro} className="upper-panel" />
+      <GyroPanel title="Thigh (Movement)" vector={sample.thighGyro} className="thigh-panel" />
+      <div className="axis-legend" aria-hidden="true">
+        <span><i className="legend-x" /> X (Roll)</span>
+        <span><i className="legend-y" /> Y (Pitch)</span>
+        <span><i className="legend-z" /> Z (Yaw)</span>
+      </div>
+    </section>
+  );
+}
+
+function GyroPanel({ title, vector, className }: { title: string; vector: Vector3; className: string }) {
+  return (
+    <div className={`gyro-panel ${className}`}>
+      <strong>{title}</strong>
+      {(["gx", "gy", "gz"] as const).map((axis) => (
+        <div key={axis} className="gyro-row">
+          <span>{axis}</span>
+          <b>{fmt(vector[axis])}</b>
+        </div>
+      ))}
+      <small>°/s</small>
+    </div>
+  );
+}
+
+function FeatureHud({
+  sample,
+  alignmentScore,
+  stabilityScore,
+}: {
+  sample: SensorSample;
+  alignmentScore: number;
+  stabilityScore: number;
 }) {
   return (
-    <div className="sig" data-testid={testId} aria-label={`${label}: ${value}${unit ?? ""}, ${stat}`}>
-      <div className="lab">
-        {label}
-        <small>{detail}</small>
+    <aside className="cockpit-card feature-hud" aria-label="Live derived features">
+      <div className="cockpit-card-head">
+        <div>
+          <h3>Live Features</h3>
+          <span>ค่าฟีเจอร์แบบเรียลไทม์</span>
+        </div>
+        <Gauge aria-hidden="true" />
+      </div>
+      <div className="feature-hud-grid">
+        <FeatureStat icon={Gauge} title="Alignment Delta" hint="ความคลาดเคลื่อน" value={`${fmt(sample.features.alignmentDelta)}°`} badge={alignmentScore < 72 ? "Possible drift" : "Good"} />
+        <FeatureStat icon={Zap} title="Stability Score" hint="ความนิ่ง" value={`${stabilityScore}/100`} badge={stabilityScore > 70 ? "Good" : "Watch"} />
+        <FeatureStat icon={Waves} title="Upper Signal RMS" hint="สัญญาณส่วนบน" value={`${fmt(sample.features.upperSignal)} °/s`} />
+        <FeatureStat icon={Activity} title="Thigh Signal RMS" hint="สัญญาณต้นขา" value={`${fmt(sample.features.thighSignal)} °/s`} />
+        <FeatureStat icon={Vibrate} title="Vibration Count" hint="จำนวนการสั่นสะเทือน" value={`${sample.features.vibrationCount}`} />
+        <FeatureStat icon={Thermometer} title="Temperature" hint="อุณหภูมิ" value={`${fmt(sample.temperature)} °C`} />
+        <FeatureStat icon={Ruler} title="Distance" hint="ระยะห่าง" value={`${fmt(sample.distance)} cm`} />
+        <FeatureStat icon={Radio} title="LED State" hint="สถานะไฟแสดงผล" value={ledCopy(sample.features.ledState)} badge={ledCopy(sample.features.ledState)} />
+      </div>
+    </aside>
+  );
+}
+
+function FeatureStat({
+  icon: Icon,
+  title,
+  hint,
+  value,
+  badge,
+}: {
+  icon: typeof Activity;
+  title: string;
+  hint: string;
+  value: string;
+  badge?: string;
+}) {
+  return (
+    <div className="feature-stat">
+      <Icon aria-hidden="true" />
+      <span>{title}</span>
+      <small>{hint}</small>
+      <strong>{value}</strong>
+      {badge ? <em>{badge}</em> : null}
+    </div>
+  );
+}
+
+function InstrumentCharts({
+  history,
+  recordedRows,
+  isRecording,
+  elapsedMs,
+  label,
+}: {
+  history: SensorSample[];
+  recordedRows: RecordingRow[];
+  isRecording: boolean;
+  elapsedMs: number;
+  label: MovementLabel;
+}) {
+  return (
+    <section className="cockpit-card instrument-panel" aria-label="Live sensor graphs">
+      <div className="instrument-grid">
+        <MultiSparkline
+          title="Upper Gyro (°/s)"
+          series={[
+            { label: "gx", values: history.map((row) => row.upperGyro.gx), color: "var(--chart-x)" },
+            { label: "gy", values: history.map((row) => row.upperGyro.gy), color: "var(--chart-y)" },
+            { label: "gz", values: history.map((row) => row.upperGyro.gz), color: "var(--chart-z)" },
+          ]}
+        />
+        <MultiSparkline
+          title="Thigh Gyro (°/s)"
+          series={[
+            { label: "gx", values: history.map((row) => row.thighGyro.gx), color: "var(--chart-x)" },
+            { label: "gy", values: history.map((row) => row.thighGyro.gy), color: "var(--chart-y)" },
+            { label: "gz", values: history.map((row) => row.thighGyro.gz), color: "var(--chart-z)" },
+          ]}
+        />
+        <MultiSparkline
+          title="Alignment Delta (°)"
+          series={[{ label: "delta", values: history.map((row) => row.features.alignmentDelta), color: "var(--chart-warn)" }]}
+        />
+        <MultiSparkline
+          title="Stability Score"
+          series={[{ label: "stability", values: history.map((row) => 100 - row.features.stability * 4), color: "var(--chart-purple)" }]}
+        />
+        <MultiSparkline
+          title="Vibration Events"
+          series={[{ label: "events", values: history.map((row) => row.vibration), color: "var(--chart-green)" }]}
+        />
+      </div>
+      <div className="recording-strip" aria-live="polite">
+        <strong className={isRecording ? "recording-dot active" : "recording-dot"}>{isRecording ? "RECORDING" : "READY"}</strong>
+        <span>Records: {recordedRows.length.toLocaleString()}</span>
+        <span>Elapsed: {formatElapsed(elapsedMs)}</span>
+        <span>Sampling: ~10 Hz</span>
+        <span>Label: {label}</span>
+      </div>
+    </section>
+  );
+}
+
+function MultiSparkline({
+  title,
+  series,
+}: {
+  title: string;
+  series: { label: string; values: number[]; color: string }[];
+}) {
+  const allValues = series.flatMap((item) => item.values);
+  const max = Math.max(1, ...allValues.map((value) => Math.abs(value)));
+  const latest = series[0]?.values.at(-1) ?? 0;
+
+  return (
+    <div className="instrument-chart">
+      <div>
+        <strong>{title}</strong>
+        <span>{fmt(latest)}</span>
+      </div>
+      <svg viewBox="0 0 120 54" preserveAspectRatio="none" aria-hidden="true">
+        <line x1="0" y1="27" x2="120" y2="27" />
+        {series.map((item) => (
+          <polyline key={item.label} points={multiSparkPoints(item.values, max)} style={{ stroke: item.color }} />
+        ))}
+      </svg>
+      <footer>
+        {series.map((item) => (
+          <span key={item.label}>
+            <i style={{ background: item.color }} />
+            {item.label}
+          </span>
+        ))}
+      </footer>
+    </div>
+  );
+}
+
+function multiSparkPoints(values: number[], max: number) {
+  const trimmed = values.slice(-48);
+  const safeValues = trimmed.length ? trimmed : [0];
+  return safeValues
+    .map((value, index) => {
+      const x = safeValues.length === 1 ? 0 : (index / (safeValues.length - 1)) * 120;
+      const y = 27 - (value / max) * 22;
+      return `${x.toFixed(2)},${clamp(y, 4, 50).toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function MotionObject3D({ sample }: { sample: SensorSample }) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
+  const sampleRef = useRef(sample);
+
+  useEffect(() => {
+    sampleRef.current = sample;
+  }, [sample]);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    camera.position.set(0, 0.7, 6.3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    mount.appendChild(renderer.domElement);
+
+    const group = new THREE.Group();
+    scene.add(group);
+
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: 0x75b99f,
+      roughness: 0.46,
+      metalness: 0.12,
+    });
+    const thighMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd4a866,
+      roughness: 0.55,
+      metalness: 0.08,
+    });
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: 0x5fa896,
+      transparent: true,
+      opacity: 0.36,
+    });
+
+    const upper = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.85, 0.5), bodyMaterial);
+    upper.position.y = 0.6;
+    upper.rotation.z = -0.08;
+    group.add(upper);
+
+    const lower = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.7, 0.55), thighMaterial);
+    lower.position.y = -0.85;
+    lower.rotation.z = 0.08;
+    group.add(lower);
+
+    const ringX = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.01, 12, 96), ringMaterial);
+    ringX.rotation.x = Math.PI / 2;
+    group.add(ringX);
+    const ringY = new THREE.Mesh(new THREE.TorusGeometry(2.05, 0.01, 12, 96), ringMaterial);
+    ringY.rotation.y = Math.PI / 2;
+    group.add(ringY);
+
+    const floor = new THREE.Mesh(
+      new THREE.CircleGeometry(2.1, 80),
+      new THREE.MeshBasicMaterial({ color: 0x5fa896, transparent: true, opacity: 0.08 }),
+    );
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.55;
+    scene.add(floor);
+
+    scene.add(new THREE.HemisphereLight(0xfbf8f1, 0x233028, 2.6));
+    const key = new THREE.DirectionalLight(0xffffff, 2.1);
+    key.position.set(2.6, 4.2, 4.6);
+    scene.add(key);
+
+    const resize = () => {
+      const width = Math.max(260, mount.clientWidth);
+      const height = Math.max(260, mount.clientHeight);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    };
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(mount);
+    resize();
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let frame = 0;
+    let raf = 0;
+
+    const animate = () => {
+      const row = sampleRef.current;
+      const rpyPitch = row.orientationRpy?.pitch;
+      const rpyRoll = row.orientationRpy?.roll;
+      const targetX = Math.max(-0.9, Math.min(0.9, typeof rpyPitch === "number" ? rpyPitch * 0.018 : row.upperGyro.gy * 0.055 + row.backAngle * 0.01));
+      const targetY = Math.max(-0.85, Math.min(0.85, row.upperGyro.gz * 0.06));
+      const targetZ = Math.max(-0.9, Math.min(0.9, typeof rpyRoll === "number" ? -rpyRoll * 0.018 : -row.upperGyro.gx * 0.05));
+      group.rotation.x += (targetX - group.rotation.x) * 0.08;
+      group.rotation.y += (targetY - group.rotation.y) * 0.08;
+      group.rotation.z += (targetZ - group.rotation.z) * 0.08;
+
+      lower.rotation.z += (row.thighGyro.gx * 0.05 - lower.rotation.z) * 0.08;
+      const pulse = reducedMotion ? 0 : Math.sin(frame * 0.035) * 0.04;
+      group.position.y = pulse;
+      const ledColor = row.features.ledState === "red" ? 0xd49186 : row.features.ledState === "yellow" ? 0xd9b173 : 0x7ec4ae;
+      bodyMaterial.color.lerp(new THREE.Color(ledColor), 0.04);
+      ringMaterial.opacity = row.features.ledState === "green" ? 0.34 : 0.48;
+      ringX.rotation.z += reducedMotion ? 0 : 0.004;
+      ringY.rotation.x += reducedMotion ? 0 : 0.003;
+
+      renderer.render(scene, camera);
+      frame += 1;
+      raf = window.requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+      observer.disconnect();
+      renderer.dispose();
+      upper.geometry.dispose();
+      lower.geometry.dispose();
+      ringX.geometry.dispose();
+      ringY.geometry.dispose();
+      floor.geometry.dispose();
+      bodyMaterial.dispose();
+      thighMaterial.dispose();
+      ringMaterial.dispose();
+      mount.removeChild(renderer.domElement);
+    };
+  }, []);
+
+  return <div className="motion-canvas" ref={mountRef} aria-label="3D motion alignment object" />;
+}
+
+function SensorStackRow({
+  item,
+  sample,
+  live,
+}: {
+  item: { key: string; name: string; detail: string; icon: React.ComponentType<React.SVGProps<SVGSVGElement>> };
+  sample: SensorSample;
+  live: boolean;
+}) {
+  const Icon = item.icon;
+  const upperActive = sample.ble.connected || (live && sample.ble.status !== "manual-disconnected");
+  const active =
+    item.key === "upper"
+      ? upperActive
+      : item.key === "vibration"
+        ? sample.vibration > 0
+        : item.key === "thermo"
+          ? Number.isFinite(sample.temperature)
+          : item.key === "distance"
+            ? Number.isFinite(sample.distance)
+            : magnitude(sample.thighGyro) > 0;
+  return (
+    <div className={active ? "sensor-stack-row active" : "sensor-stack-row"}>
+      <div className="sensor-stack-icon">
+        <Icon aria-hidden={true} />
       </div>
       <div>
-        <div className={posture ? "val posture" : "val"}>
-          <span>{value}</span>
-          {unit ? <span className="u">{unit}</span> : null}
-        </div>
-        <span className="stat">{stat}</span>
+        <strong>{item.name}</strong>
+        <span>{item.detail}</span>
       </div>
+      <i aria-label={active ? "active" : "waiting"} />
     </div>
+  );
+}
+
+function FeatureTile({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  label: string;
+  value: string | number;
+  tone?: "state";
+}) {
+  return (
+    <div className={tone === "state" ? "feature-tile state" : "feature-tile"}>
+      <Icon aria-hidden={true} />
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function Sparkline({ title, values }: { title: string; values: number[] }) {
+  const points = useMemo(() => {
+    const rows = values.slice(-80);
+    if (!rows.length) return "";
+    const min = Math.min(...rows);
+    const max = Math.max(...rows);
+    const span = Math.max(max - min, 0.01);
+    return rows
+      .map((value, index) => {
+        const x = rows.length === 1 ? 0 : (index / (rows.length - 1)) * 100;
+        const y = 44 - ((value - min) / span) * 38;
+        return `${x.toFixed(2)},${y.toFixed(2)}`;
+      })
+      .join(" ");
+  }, [values]);
+
+  const latest = values.length ? values[values.length - 1] : 0;
+  return (
+    <div className="sparkline-card">
+      <div>
+        <span>{title}</span>
+        <strong>{fmt(latest)}</strong>
+      </div>
+      <svg viewBox="0 0 100 48" preserveAspectRatio="none" aria-hidden="true">
+        <polyline points={points} />
+      </svg>
+    </div>
+  );
+}
+
+function SummaryCard({ title, value, detail }: { title: string; value: string | number; detail: string }) {
+  return (
+    <Card className="clip-card summary-card">
+      <CardContent className="clip-card-content">
+        <span>{title}</span>
+        <strong>{value}</strong>
+        <p>{detail}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1440,51 +1978,3 @@ function ViewHead({ title, copy, chip }: { title: string; copy: string; chip: st
     </div>
   );
 }
-
-function PersonaChoiceGroup<T extends string>({
-  legend,
-  value,
-  choices,
-  onChange,
-}: {
-  legend: string;
-  value: T;
-  choices: readonly { value: T; label: string; copy: string }[];
-  onChange: (value: T) => void;
-}) {
-  return (
-    <fieldset className="persona-fieldset">
-      <legend>{legend}</legend>
-      <div className="persona-choice-grid">
-        {choices.map((choice) => {
-          const selected = choice.value === value;
-          return (
-            <button
-              key={choice.value}
-              type="button"
-              className={selected ? "persona-choice selected" : "persona-choice"}
-              aria-pressed={selected}
-              onClick={() => onChange(choice.value)}
-            >
-              <span>{choice.label}</span>
-              <small>{choice.copy}</small>
-            </button>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
-function InsightCard({ title, copy }: { title: string; copy: string }) {
-  return (
-    <Card className="insight-card">
-      <CardContent className="insight-content">
-        <span>ฉันสังเกตว่า...</span>
-        <strong>{title}</strong>
-        <p>{copy}</p>
-      </CardContent>
-    </Card>
-  );
-}
-

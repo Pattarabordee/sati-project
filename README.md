@@ -1,25 +1,25 @@
-# Sati — Posture & Focus Coach
+# Sati Clip - Movement-Awareness Sensor Lab
 
 Hackathon project for "Coding Thailand 2026" (Wellness track)  
-Built on Arduino UNO Q + Nano 33 BLE Sense + Modulino ToF
+Built on Arduino UNO Q + Nano 33 BLE Sense + Modulino Movement / Thermo / Distance + vibration module
 
 ## What It Does
 
-Sati is a sensor-driven posture and focus coach for desk work. The web app reads back angle, screen distance, and movement signals, then turns confirmed behavior into a calm growth mechanic: a virtual plant, GP, coins, daily missions, Second-Brain observations, and an LLM-ready Persona Avatar recommender. The goal is to make posture and break patterns visible without relying on self-report buttons as the main data source.
+Sati Clip is a sensor-driven data collection dashboard for lifting and carrying movement awareness. The web app reads upper-body gyro from the strict BLE target `Sati-Nano`, combines it with lower-body Modulino and vibration signals from UNO Q, visualizes live features in a game-like sensor lab, and exports labeled CSV rows for later AI model training. The goal is clean supervised data collection: explicit labels, live 3D motion feedback, and observable sensor status without relying on self-report as the main data source.
 
 ## Architecture
 
 ```text
-[Nano 33 BLE Sense] --BLE--> [Arduino UNO Q (MPU/Linux)] --WebSocket--> [Browser (Next.js)]
-[Modulino ToF]      --Serial->                                                  |
-                                                                          window.name memory
+[Nano 33 BLE Sense / Sati-Nano] --BLE--> [Arduino UNO Q (MPU/Linux)] --WebSocket--> [Browser (Next.js)]
+[Modulino Movement/Thermo/Distance + Vibration] --Serial------------------------> |
+                                                                            window.name memory
 ```
 
 3 layers:
 
-- **MCU sensors:** IMU back angle, ToF screen distance, movement detection
-- **Bridge (Python):** `sati_ws_bridge.py` combines sensor data -> JSON -> `ws://0.0.0.0:8765`
-- **Web UI (Next.js):** state machine, growth mechanic, missions, Second-Brain insights, and Persona Avatar recommendations
+- **Sensors:** upper gyro from `Sati-Nano`, lower gyro / vibration / temperature / distance from UNO Q + Modulino stack
+- **Bridge (Python):** `sati_ws_bridge.py` combines sensor data -> extended JSON -> `ws://0.0.0.0:8765`
+- **Web UI (Next.js):** Sensors lab, 3D motion object, sparklines, labeled recording controls, CSV export, and Second-Brain summary
 
 ## Tech Stack
 
@@ -32,7 +32,7 @@ Sati is a sensor-driven posture and focus coach for desk work. The web app reads
 
 | Path | Purpose |
 |---|---|
-| `src/components/sati-app.tsx` | Main app logic: sensor state, growth, missions, shop, insights |
+| `src/components/sati-app.tsx` | Main app logic: sensor stream, recording session, CSV export, 3D motion view, summaries |
 | `src/components/ui/` | Lightweight UI primitives used by the Next.js app |
 | `src/app/` | Next.js App Router entry, metadata, global styles, light/dark theme tokens |
 | `sati_ws_bridge.py` | Python WebSocket bridge for UNO Q Linux side |
@@ -60,15 +60,7 @@ npm run dev
 # Open http://localhost:3000
 ```
 
-By default, `NEXT_PUBLIC_SATI_DEMO_MODE=true` so GP grows faster for the hackathon demo.
-
-To use the real 25-minute / +20 GP setting:
-
-```powershell
-$env:NEXT_PUBLIC_SATI_DEMO_MODE="false"; npm run dev
-```
-
-Hardware WebSocket auto-connect is off by default during local demo to avoid noisy console errors when the bridge is not running. To connect live hardware, open:
+The dashboard uses a mock stream by default so the UI can be tested without hardware. To connect live hardware, open:
 
 ```powershell
 Start-Process "http://localhost:3000?live=1"
@@ -85,7 +77,7 @@ $env:NEXT_PUBLIC_SATI_WS_AUTOCONNECT="true"; npm run dev
 The live site is responsive:
 
 - Mobile (375px+): single-column layout
-- Tablet (768px+): stacked coach view with readable cards
+- Tablet (768px+): stacked sensor lab with readable cards
 - Desktop (1024px+): multi-column dashboard layout
 
 For best demo experience, use **landscape tablet** or **laptop** at 1280x720+.
@@ -174,29 +166,28 @@ Official docs:
 
 ### Steps
 
-1. **Open Arduino App Lab -> Detect board** and confirm the UNO Q is visible.
-2. **Create a new App** named `sati-coach`.
-3. **Add the Python bridge on the MPU/Linux side** according to the App Lab UI:
-   - Entry file: `sati_ws_bridge.py`
-   - Dependencies: copy the packages from `requirements.txt`
-   - Auto-restart: enabled if your App Lab version exposes this setting
-   - Network: expose TCP port `8765`
-4. **Add the static web frontend**:
-   - Build on the dev machine first:
-     ```powershell
-     npm run build
-     ```
-   - Upload or copy the generated `out/` folder into the App Lab static web service, or serve it from the UNO Q Linux side with:
-     ```powershell
-     python3 -m http.server 8080 --directory out --bind 0.0.0.0
-     ```
-   - Bind web port `8080`, or the port assigned by App Lab.
+1. **Build the App Lab web bundle** on the dev machine:
+   ```powershell
+   npm run app-lab:web
+   ```
+2. **Open Arduino App Lab -> Detect board** and confirm the UNO Q is visible.
+3. **Open or import the prepared App folder**:
+   ```text
+   app-lab/sati-clip-app
+   ```
+4. **Confirm the Python side**:
+   - Entry file: `python/main.py`
+   - Static web files: `python/web/`
+   - Dependencies: `python/requirements.txt`
+   - Web port: `8080`
+   - WebSocket port: `8765`
 5. **Configure bridge environment variables** in App settings:
    - Set `SATI_BLE_NAME` to match the Nano sketch.
    - Set `SATI_BLE_CHAR` to the GATT characteristic UUID.
    - Set `SATI_SERIAL_PORT` to the MCU Serial device path, usually `/dev/ttyACM0` or `/dev/ttyUSB0` on UNO Q Linux.
-6. **Upload the MCU-side sketch** for Modulino ToF -> Serial:
-   - Use Arduino IDE 2.x or the App Lab built-in sketch editor.
+6. **Confirm the MCU-side sketch**:
+   - App Lab package path: `sketch/sketch.ino`
+   - It is based on `arduino/unoq_tof_bridge/unoq_tof_bridge.ino`.
    - The sketch must print JSON like this at baud `115200`:
      ```json
      {"tof": 62.5}
@@ -217,8 +208,8 @@ Official docs:
 | Problem | Possible cause | Fix |
 |---|---|---|
 | UI shows `mock fallback` | WebSocket is not reachable | Check that `sati_ws_bridge.py` is running on UNO Q and port `8765` is open |
-| Back angle does not move | BLE is not connected | Check `SATI_BLE_NAME` and `SATI_BLE_CHAR` in App Lab environment settings |
-| Screen distance stays `60` | Serial ToF fallback is active | Check `SATI_SERIAL_PORT`; on UNO Q it may be `/dev/ttyACM0` or `/dev/ttyUSB0` |
+| Upper gyro does not move | BLE is not connected to `Sati-Nano` | Check `SATI_BLE_NAME` and `SATI_BLE_CHAR` in App Lab environment settings |
+| Distance stays `60` | Serial distance fallback is active | Check `SATI_SERIAL_PORT`; on UNO Q it may be `/dev/ttyACM0` or `/dev/ttyUSB0` |
 | App Lab deploy fails | Port conflict or service config mismatch | Change ports `8765` / `8080` or follow the current App Lab docs |
 | Browser cannot connect from laptop | Frontend URL points to localhost | Open `http://<uno-q-ip>:8080?live=1`; the app uses the page hostname for WebSocket |
 
@@ -236,7 +227,7 @@ Official docs:
 - **No localStorage/sessionStorage:** uses `window.name` for sandbox iframe compatibility.
 - **Theme:** light/dark/system toggle, persisted via `window.name`, no localStorage.
 - **Wellness only:** Sati reports sensor observations for personal awareness.
-- **Sensor-driven:** GP, breaks, and missions are tied to sensor-confirmed behavior. Fallback controls exist for demo resilience if hardware is unavailable.
+- **Sensor-driven:** recorded rows come from WebSocket sensor payloads or clearly marked mock fallback when hardware is unavailable.
 
 ## Demo & Business
 
