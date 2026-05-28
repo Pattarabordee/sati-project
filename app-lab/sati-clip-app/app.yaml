@@ -1,0 +1,7 @@
+name: Sati Clip
+icon: 🌱
+description: Movement-awareness sensor lab for collecting BLE and Modulino data on Arduino UNO Q.
+
+ports:
+  - 8080
+  - 8765
